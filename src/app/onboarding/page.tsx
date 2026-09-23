@@ -38,7 +38,7 @@ export default function OnboardingPage() {
 
   const handleFinish = async () => {
     await businessRepo.update({
-      name: businessName.trim() || "Adaeze's Bespoke Studio",
+      name: businessName.trim() || "Ijeoma's Bespoke Studio",
       unitSystem: unit,
       garmentTypes: selectedGarments,
     });
@@ -130,7 +130,7 @@ export default function OnboardingPage() {
                     type="text"
                     value={businessName}
                     onChange={e => setBusinessName(e.target.value)}
-                    placeholder="e.g. Adaeze's Bespoke Studio"
+                    placeholder="e.g. Ijeoma's Bespoke Studio"
                     className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm sm:text-base text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive shadow-xs"
                     autoFocus
                   />

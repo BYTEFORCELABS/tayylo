@@ -48,12 +48,12 @@ function rawFromMm(mm: number, unit: "in" | "cm" = "in"): string {
 // ---- Business ----
 export const seedBusiness: Business = {
   id: BIZ_ID,
-  name: "Adaeze's Bespoke Studio",
+  name: "Ijeoma's Bespoke Studio",
   country: "NG",
   currency: "NGN",
   unitSystem: "imperial",
   timezone: "Africa/Lagos",
-  ownerName: "Adaeze",
+  ownerName: "Ijeoma",
   garmentTypes: ["Shirt", "Trousers", "Suit", "Agbada", "Kaftan", "Dress"],
   createdAt: monthsAgo(18),
 };
@@ -372,7 +372,7 @@ const customerNames = [
   { name: "John Smith", phone: "+1 415 555 0142", country: "US" },
   { name: "Priya Nair", phone: "+91 98765 43210", country: "IN" },
   { name: "Kofi Mensah", phone: "+233 20 123 4567", country: "GH" },
-  { name: "Adaeze Okafor", phone: "+234 803 456 7890", country: "NG" },
+  { name: "Ijeoma Okafor", phone: "+234 803 456 7890", country: "NG" },
   { name: "Yuki Tanaka", phone: "+81 90 1234 5678", country: "JP" },
   { name: "Carlos Rodriguez", phone: "+52 55 1234 5678", country: "MX" },
   { name: "Fatima Al-Hassan", phone: "+971 50 123 4567", country: "AE" },
@@ -484,7 +484,7 @@ export const seedMeasurementSets: MeasurementSet[] = [
     takenAt: monthsAgo(12), source: "manual", status: "final",
     values: makeValues(agbadaTemplateId, { chest: inToMm(44), shoulder: inToMm(20), agbada_length: inToMm(60), sleeve_width: inToMm(36), neck: inToMm(17), trouser_waist: inToMm(38), trouser_length: inToMm(42) }),
   },
-  // Adaeze - Dress
+  // Ijeoma - Dress
   {
     id: "ms-005", businessId: BIZ_ID, customerId: "cust-004", templateId: dressTemplateId, templateName: "Dress",
     takenAt: daysAgo(3), source: "manual", status: "final",
@@ -543,9 +543,9 @@ export const seedOrders: Order[] = [
     ],
   },
   {
-    id: "ord-004", businessId: BIZ_ID, customerId: "cust-004", customerName: "Adaeze Okafor",
+    id: "ord-004", businessId: BIZ_ID, customerId: "cust-004", customerName: "Ijeoma Okafor",
     number: "1004", statusName: "fitting", dueAt: daysAgo(-7), createdAt: daysAgo(21), updatedAt: daysAgo(3),
-    items: [{ id: "oi-004", orderId: "ord-004", garmentType: "Dress", measurementSetId: "ms-005", styleNotes: "Evening gown, emerald green", photos: [], imageUrl: "/garments/dress.jpg" }],
+    items: [{ id: "oi-004", orderId: "ord-004", garmentType: "Dress", measurementSetId: "ms-005", styleNotes: "Evening gown, emerald green", photos: [] }],
     priceMinor: 95000, currency: "NGN",
     payments: [{ id: "pay-005", orderId: "ord-004", amountMinor: 50000, paidAt: daysAgo(21), method: "Transfer" }],
     fittings: [{ id: "fit-004", orderId: "ord-004", number: 1, fittedAt: daysAgo(3), outcome: "adjustments_needed", adjustments: [{ fieldKey: "waist", label: "Waist", deltaMm: inToMm(-0.5), rawDelta: "-½" }], notes: "Needs to be taken in slightly at the waist" }],
@@ -572,7 +572,7 @@ export const seedOrders: Order[] = [
   {
     id: "ord-007", businessId: BIZ_ID, customerId: "cust-006", customerName: "Carlos Rodriguez",
     number: "1007", statusName: "sewing", dueAt: daysAgo(-3), createdAt: daysAgo(15), updatedAt: daysAgo(4),
-    items: [{ id: "oi-007", orderId: "ord-007", garmentType: "Shirt", measurementSetId: "ms-007", styleNotes: "Blue Oxford, button-down collar", photos: [], imageUrl: "/garments/shirt.jpg" }],
+    items: [{ id: "oi-007", orderId: "ord-007", garmentType: "Shirt", measurementSetId: "ms-007", styleNotes: "Blue Oxford, button-down collar", photos: [] }],
     priceMinor: 28000, currency: "NGN",
     payments: [{ id: "pay-009", orderId: "ord-007", amountMinor: 14000, paidAt: daysAgo(15), method: "Transfer" }],
     fittings: [],
@@ -580,7 +580,7 @@ export const seedOrders: Order[] = [
   {
     id: "ord-008", businessId: BIZ_ID, customerId: "cust-009", customerName: "Amara Diallo",
     number: "1008", statusName: "cutting", dueAt: daysAgo(-1), createdAt: daysAgo(10), updatedAt: daysAgo(6),
-    items: [{ id: "oi-008", orderId: "ord-008", garmentType: "Dress", measurementSetId: "ms-003", styleNotes: "Traditional Senegalese boubou", photos: [], imageUrl: "/garments/agbada.jpg" }],
+    items: [{ id: "oi-008", orderId: "ord-008", garmentType: "Dress", measurementSetId: "ms-003", styleNotes: "Traditional Senegalese boubou", photos: [] }],
     priceMinor: 55000, currency: "NGN",
     payments: [],
     fittings: [],
@@ -588,7 +588,7 @@ export const seedOrders: Order[] = [
   {
     id: "ord-009", businessId: BIZ_ID, customerId: "cust-011", customerName: "Oluwaseun Adekunle",
     number: "1009", statusName: "pending", dueAt: daysAgo(-10), createdAt: daysAgo(5), updatedAt: daysAgo(5),
-    items: [{ id: "oi-009", orderId: "ord-009", garmentType: "Agbada", measurementSetId: "ms-004", styleNotes: "Royal blue with silver embroidery", photos: [], imageUrl: "/garments/agbada.jpg" }],
+    items: [{ id: "oi-009", orderId: "ord-009", garmentType: "Agbada", measurementSetId: "ms-004", styleNotes: "Royal blue with silver embroidery", photos: [] }],
     priceMinor: 180000, currency: "NGN",
     payments: [{ id: "pay-010", orderId: "ord-009", amountMinor: 90000, paidAt: daysAgo(5), method: "Transfer" }],
     fittings: [],
@@ -596,7 +596,7 @@ export const seedOrders: Order[] = [
   {
     id: "ord-010", businessId: BIZ_ID, customerId: "cust-007", customerName: "Fatima Al-Hassan",
     number: "1010", statusName: "delivered", dueAt: daysAgo(45), createdAt: daysAgo(90), updatedAt: daysAgo(40),
-    items: [{ id: "oi-010", orderId: "ord-010", garmentType: "Dress", measurementSetId: "ms-003", styleNotes: "Abaya, black with subtle embroidery", photos: [], imageUrl: "/garments/dress.jpg" }],
+    items: [{ id: "oi-010", orderId: "ord-010", garmentType: "Dress", measurementSetId: "ms-003", styleNotes: "Abaya, black with subtle embroidery", photos: [] }],
     priceMinor: 65000, currency: "NGN",
     payments: [
       { id: "pay-011", orderId: "ord-010", amountMinor: 32500, paidAt: daysAgo(90), method: "Transfer" },

@@ -20,6 +20,7 @@ import {
   Users,
   Download,
   UploadCloud,
+  Calendar,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -228,6 +229,28 @@ export default function SettingsPage() {
                 <Edit2 size={14} />
                 <span>Edit</span>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Studio */}
+      <section className="mb-6">
+        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Studio</h2>
+        <Card>
+          <CardContent>
+            <div
+              className="flex items-center gap-4 cursor-pointer hover:bg-beige-light/20 -mx-4 -my-2 p-4 rounded-[var(--radius-card)] transition-colors"
+              onClick={() => router.push("/appointments")}
+            >
+              <div className="w-12 h-12 rounded-[var(--radius-card)] bg-beige-light flex items-center justify-center shrink-0 text-olive">
+                <Calendar size={22} strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-primary truncate">Studio Appointments</p>
+                <p className="text-xs text-text-secondary">Fittings, measurements & pickups on the calendar</p>
+              </div>
+              <ChevronRight size={18} className="text-text-tertiary shrink-0" />
             </div>
           </CardContent>
         </Card>

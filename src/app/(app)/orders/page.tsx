@@ -2,14 +2,13 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, Filter, SlidersHorizontal, ChevronRight } from "lucide-react";
+import { Search, Plus, Filter, SlidersHorizontal, ChevronRight, Shirt } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusTag } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import { Skeleton, EmptyState } from "@/components/ui/states";
 import { orderRepo, customerRepo } from "@/lib/mock/store";
-import { getGarmentImage } from "@/lib/mock/seed-data";
 import type { Order, OrderStatusName, Customer } from "@/types";
 
 const statusFilters: { key: OrderStatusName | "all"; label: string }[] = [
@@ -133,7 +132,7 @@ export default function OrdersPage() {
               const balance = o.priceMinor - paid;
               const days = daysUntil(o.dueAt);
               const overdue = days < 0 && !["delivered", "cancelled"].includes(o.statusName);
-              const garmentImg = o.items[0]?.imageUrl || getGarmentImage(o.items[0]?.garmentType);
+              const garmentImg = o.items[0]?.imageUrl;
               const client = clients.find(c => c.id === o.customerId);
 
               return (
@@ -145,13 +144,19 @@ export default function OrdersPage() {
                 >
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex items-center gap-3.5">
-                      {/* Real Garment Photography Thumbnail */}
-                      <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-[var(--radius-card)] overflow-hidden shrink-0 border border-border/80 bg-beige-light relative">
-                        <img
-                          src={garmentImg}
-                          alt={o.items[0]?.garmentType || "Garment"}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
+                      {/* Garment photo when we have a real one, otherwise a plain
+                          icon tile — avoids showing the same stock photo for
+                          multiple different orders */}
+                      <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-[var(--radius-card)] overflow-hidden shrink-0 border border-border/80 bg-beige-light relative flex items-center justify-center">
+                        {garmentImg ? (
+                          <img
+                            src={garmentImg}
+                            alt={o.items[0]?.garmentType || "Garment"}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <Shirt size={24} strokeWidth={1.5} className="text-text-tertiary" />
+                        )}
                         <span className="absolute bottom-1 right-1 text-[9px] font-mono px-1 rounded bg-black/75 text-white-warm backdrop-blur-xs">
                           #{o.number}
                         </span>

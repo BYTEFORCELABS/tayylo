@@ -10,18 +10,16 @@ import {
   Plus,
   Ruler,
   ShoppingBag,
-  Calendar,
-  CheckCircle2,
-  Circle,
   CreditCard,
   X,
   ChevronRight,
   Sun,
   Moon,
+  Shirt,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
-import { StatusTag, Tag } from "@/components/ui/tag";
+import { StatusTag } from "@/components/ui/tag";
 import { Skeleton } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,10 +34,9 @@ import {
   businessRepo,
   customerRepo,
   orderRepo,
-  scheduleRepo,
 } from "@/lib/mock/store";
 import { garmentCategories, getGarmentImage } from "@/lib/mock/seed-data";
-import type { Business, Customer, Order, ScheduleItem } from "@/types";
+import type { Business, Customer, Order } from "@/types";
 import { toast } from "sonner";
 
 function getGreeting() {
@@ -69,7 +66,6 @@ export default function TodayPage() {
   const [orders, setOrders] = React.useState<Order[]>([]);
   const [allClients, setAllClients] = React.useState<Customer[]>([]);
   const [recentClients, setRecentClients] = React.useState<Customer[]>([]);
-  const [schedule, setSchedule] = React.useState<ScheduleItem[]>([]);
   const [search, setSearch] = React.useState("");
 
   // Filter category
@@ -126,17 +122,15 @@ export default function TodayPage() {
 
   React.useEffect(() => {
     async function load() {
-      const [biz, ords, clients, sch] = await Promise.all([
+      const [biz, ords, clients] = await Promise.all([
         businessRepo.get(),
         orderRepo.list(),
         customerRepo.list(),
-        scheduleRepo.list(),
       ]);
       setBusiness(biz);
       setOrders(ords);
       setAllClients(clients);
       setRecentClients(clients.slice(0, 8));
-      setSchedule(sch);
       setLoading(false);
     }
     load();
@@ -191,13 +185,6 @@ export default function TodayPage() {
       className: "bg-text-primary",
     },
   ];
-
-  // Toggle schedule completion
-  const handleToggleSchedule = async (id: string) => {
-    const isComp = await scheduleRepo.toggleComplete(id);
-    setSchedule(prev => prev.map(s => (s.id === id ? { ...s, completed: isComp } : s)));
-    toast(isComp ? "Appointment completed" : "Appointment marked pending");
-  };
 
   // Quick payment handler
   const handleQuickPayment = async () => {
@@ -256,7 +243,7 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="pb-24 w-full overflow-x-hidden">
+    <div className="pb-24 w-full">
       {/* ============================================================ */}
       {/* 1. TOP BAR: Tailor Profile Avatar, Greeting, Theme Toggle & Notification Bell */}
       {/* Fixed on scroll so context is never lost */}
@@ -265,7 +252,7 @@ export default function TodayPage() {
       <div className="flex items-center justify-between gap-2 pt-5 pb-4 w-full max-w-3xl mx-auto">
         <div className="flex items-center gap-3 flex-1 min-w-0 pr-1">
           <Avatar
-            name={business?.ownerName || "Adaeze"}
+            name={business?.ownerName || "Ijeoma"}
             src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
             size="md"
             className="w-11 h-11 shrink-0"
@@ -273,7 +260,7 @@ export default function TodayPage() {
           <div className="min-w-0 flex-1">
             <p className="text-xs text-text-tertiary">{formatDate(new Date())}</p>
             <h1 className="font-serif text-xl sm:text-2xl text-text-primary font-bold tracking-tight truncate mt-0.5">
-              {getGreeting()}, {business?.ownerName || "Adaeze"}
+              {getGreeting()}, {business?.ownerName || "Ijeoma"}
             </h1>
           </div>
         </div>
@@ -488,10 +475,10 @@ export default function TodayPage() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className="flex flex-col items-center gap-2 shrink-0 snap-start w-28 group transition-transform active:scale-[0.96]"
+                className="flex flex-col items-center gap-1.5 shrink-0 snap-start w-20 group transition-transform active:scale-[0.96]"
               >
                 <div
-                  className={`w-28 h-32 rounded-2xl overflow-hidden transition-all ${
+                  className={`w-20 h-24 rounded-xl overflow-hidden transition-all ${
                     isSelected ? "ring-2 ring-olive" : "ring-1 ring-border"
                   }`}
                 >
@@ -547,7 +534,7 @@ export default function TodayPage() {
             {filteredActiveOrders.slice(0, 5).map(o => {
               const days = daysUntil(o.dueAt);
               const isOverdue = days < 0;
-              const garmentImg = o.items[0]?.imageUrl || getGarmentImage(o.items[0]?.garmentType);
+              const garmentImg = o.items[0]?.imageUrl;
 
               return (
                 <Card
@@ -558,13 +545,19 @@ export default function TodayPage() {
                 >
                   <CardContent className="p-0">
                     <div className="flex items-center gap-3.5">
-                      {/* Real Garment Photography Thumbnail */}
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[var(--radius-card)] overflow-hidden shrink-0 bg-beige-light">
-                        <img
-                          src={garmentImg}
-                          alt={o.items[0]?.garmentType || "Garment"}
-                          className="w-full h-full object-cover"
-                        />
+                      {/* Garment photo when we have a real one, otherwise a plain
+                          icon tile — avoids showing the same stock photo for
+                          multiple different orders */}
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[var(--radius-card)] overflow-hidden shrink-0 bg-beige-light flex items-center justify-center">
+                        {garmentImg ? (
+                          <img
+                            src={garmentImg}
+                            alt={o.items[0]?.garmentType || "Garment"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Shirt size={24} strokeWidth={1.5} className="text-text-tertiary" />
+                        )}
                       </div>
 
                       {/* Order Details */}
@@ -651,84 +644,6 @@ export default function TodayPage() {
             </button>
           ))}
         </div>
-      </section>
-
-      {/* ============================================================ */}
-      {/* 8. TODAY'S WORK & FITTINGS APPOINTMENTS */}
-      {/* ============================================================ */}
-      <section className="mb-7">
-        <div className="flex items-center justify-between mb-3 px-1">
-          <h2 className="text-base font-serif font-bold text-text-primary flex items-center gap-2">
-            <Calendar size={16} strokeWidth={1.75} className="text-olive" />
-            Today's Studio Appointments
-          </h2>
-          <span className="text-xs text-text-tertiary">
-            {schedule.filter(s => s.completed).length} of {schedule.length} done
-          </span>
-        </div>
-
-        <Card padding="none" className="overflow-hidden shadow-none">
-          <CardContent className="divide-y divide-border/60">
-            {schedule.map(item => {
-              const client = allClients.find(c => c.id === item.clientId);
-              return (
-                <div
-                  key={item.id}
-                  className={`flex items-center justify-between p-3.5 transition-colors ${
-                    item.completed ? "bg-beige-light/20 opacity-75" : "hover:bg-beige-light/40"
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                    <button
-                      onClick={() => handleToggleSchedule(item.id)}
-                      className="text-olive hover:scale-110 transition-transform shrink-0"
-                      title={item.completed ? "Mark pending" : "Mark done"}
-                    >
-                      {item.completed ? (
-                        <CheckCircle2 size={22} className="text-success fill-success/15" />
-                      ) : (
-                        <Circle size={22} className="text-border-strong hover:text-olive" />
-                      )}
-                    </button>
-
-                    <Avatar name={item.clientName} src={client?.photoUrl} size="sm" />
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-text-primary font-mono">{item.time}</span>
-                        <Tag
-                          size="sm"
-                          variant={item.type === "fitting" ? "olive" : item.type === "measure" ? "info" : "beige"}
-                        >
-                          {item.type}
-                        </Tag>
-                        {item.garment && (
-                          <span className="text-xs text-text-tertiary hidden sm:inline">
-                            · {item.garment}
-                          </span>
-                        )}
-                      </div>
-                      <p
-                        className={`text-sm text-text-primary mt-0.5 truncate ${
-                          item.completed ? "line-through text-text-tertiary" : "font-semibold"
-                        }`}
-                      >
-                        {item.title}
-                      </p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => router.push(`/clients/${item.clientId}`)}
-                    className="text-xs text-olive hover:underline ml-2 shrink-0 font-semibold"
-                  >
-                    View &gt;
-                  </button>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
       </section>
 
       {/* ============================================================ */}
@@ -882,7 +797,7 @@ export default function TodayPage() {
 
             <div className="p-3 rounded-[var(--radius-card)] bg-white-warm border border-border flex items-start gap-3">
               <Avatar
-                name="Adaeze Okafor"
+                name="Ijeoma Okafor"
                 src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
                 size="md"
               />

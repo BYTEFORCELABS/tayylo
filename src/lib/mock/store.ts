@@ -21,11 +21,15 @@ import {
   seedTemplates,
   seedOrders,
   seedSchedule,
-  getGarmentImage,
 } from "./seed-data";
 import { v4 as uuid } from "uuid";
 
 const STORAGE_KEY = "tayylo_store";
+
+// Bump this whenever seed-data.ts changes in a way that should be reflected
+// in already-persisted demo sessions (renamed people, fixed garment photos,
+// etc.) — otherwise stale localStorage silently masks the new seed data.
+const SEED_VERSION = 2;
 
 interface StoreData {
   business: Business;
@@ -35,6 +39,7 @@ interface StoreData {
   orders: Order[];
   schedule: ScheduleItem[];
   isOnboarded: boolean;
+  seedVersion?: number;
 }
 
 function loadStore(): StoreData {
@@ -42,6 +47,9 @@ function loadStore(): StoreData {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<StoreData>;
+      if (parsed.seedVersion !== SEED_VERSION) {
+        return getDefaultData();
+      }
       const rawCustomers = parsed.customers ?? seedCustomers;
       const customers = rawCustomers.map((c, i) => {
         const seed = seedCustomers.find(sc => sc.id === c.id) || seedCustomers[i % seedCustomers.length];
@@ -52,14 +60,7 @@ function loadStore(): StoreData {
         };
       });
 
-      const rawOrders = parsed.orders ?? seedOrders;
-      const orders = rawOrders.map(o => ({
-        ...o,
-        items: o.items.map(it => ({
-          ...it,
-          imageUrl: it.imageUrl || getGarmentImage(it.garmentType),
-        })),
-      }));
+      const orders = parsed.orders ?? seedOrders;
 
       return {
         business: parsed.business ?? seedBusiness,
@@ -84,6 +85,7 @@ function getDefaultData(): StoreData {
     orders: seedOrders,
     schedule: seedSchedule,
     isOnboarded: false,
+    seedVersion: SEED_VERSION,
   };
 }
 

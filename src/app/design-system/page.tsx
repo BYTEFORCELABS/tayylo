@@ -196,7 +196,7 @@ export default function DesignSystemPage() {
             </div>
             <div className="bg-white-warm border border-border rounded-[var(--radius-card)] p-6 space-y-4">
               <p className="text-xs text-text-tertiary uppercase tracking-wider">Urbanist — Titles & Names</p>
-              <p className="font-serif text-4xl font-medium">Good morning, Adaeze</p>
+              <p className="font-serif text-4xl font-medium">Good morning, Ijeoma</p>
               <p className="font-serif text-2xl">John Smith</p>
               <p className="font-serif text-lg italic">Your client list is empty</p>
             </div>
@@ -438,7 +438,7 @@ export default function DesignSystemPage() {
             <Avatar name="John Smith" size="sm" />
             <Avatar name="Priya Nair" size="md" />
             <Avatar name="Kofi Mensah" size="lg" />
-            <Avatar name="Adaeze Okafor" size="xl" />
+            <Avatar name="Ijeoma Okafor" size="xl" />
             <Avatar name="Yuki Tanaka" size="md" />
             <Avatar name="Carlos Rodriguez" size="md" />
           </div>
@@ -522,10 +522,10 @@ export default function DesignSystemPage() {
               avatarName="Kofi Mensah"
             />
             <ListRow
-              title="Adaeze Okafor"
+              title="Ijeoma Okafor"
               subtitle="+234 803 456 7890"
               meta="New client"
-              avatarName="Adaeze Okafor"
+              avatarName="Ijeoma Okafor"
             />
           </div>
         </section>

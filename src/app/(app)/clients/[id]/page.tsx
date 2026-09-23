@@ -226,7 +226,7 @@ export default function ClientProfilePage() {
         <div className="flex items-center gap-3 py-3">
           <button
             onClick={() => router.push("/clients")}
-            className="w-9 h-9 -ml-1.5 flex items-center justify-center rounded-full hover:bg-beige-light transition-colors shrink-0"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-beige-light transition-colors shrink-0"
             aria-label="Back to clients"
           >
             <ArrowLeft size={18} strokeWidth={1.75} />
