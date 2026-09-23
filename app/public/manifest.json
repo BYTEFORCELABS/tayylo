@@ -1,0 +1,23 @@
+{
+  "name": "Tayylo",
+  "short_name": "Tayylo",
+  "description": "The modern tailor's notebook — find any client in two seconds, record measurements at the speed of a tape.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F1E8",
+  "theme_color": "#454F2C",
+  "icons": [
+    {
+      "src": "/icon_olive.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon_beige.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

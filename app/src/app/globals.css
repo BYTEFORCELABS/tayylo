@@ -1,0 +1,296 @@
+@import "tailwindcss";
+
+/* ================================================================
+   TAYYLO DESIGN SYSTEM — CSS Custom Properties
+   ================================================================ */
+
+@theme {
+  /* Brand colours */
+  --color-olive: #454F2C;
+  --color-olive-deep: #30371F;
+  --color-olive-light: #6B7A45;
+  --color-beige: #F0EEE9;
+  --color-beige-light: #F7F6F3;
+  --color-cream: #FFFFFF;
+  --color-white-warm: #FFFFFF;
+  --color-card-bg: #FFFFFF;
+
+  /* Text */
+  --color-text-primary: #24261F;
+  --color-text-secondary: #6A6C61;
+  --color-text-tertiary: #73756A;
+  --color-text-inverse: #FFFFFF;
+
+  /* Borders */
+  --color-border: #EBEAE5;
+  --color-border-strong: #D8D6CD;
+
+  /* Status */
+  --color-success: #3F7A52;
+  --color-warning: #A8741F;
+  --color-danger: #A3412F;
+  --color-info: #476A80;
+
+  /* Status backgrounds */
+  --color-success-bg: #E8F2EC;
+  --color-warning-bg: #F5EDDF;
+  --color-danger-bg: #F5E6E3;
+  --color-info-bg: #E3ECF0;
+
+  /* Dark mode colours */
+  --color-dark-surface-1: #15170F;
+  --color-dark-surface-2: #1D2017;
+  --color-dark-surface-3: #272B1F;
+  --color-dark-text: #EDE7DA;
+  --color-dark-olive: #A9B386;
+  --color-dark-border: #3A3F2E;
+
+  /* Spacing (8px grid) */
+  --spacing-0: 0px;
+  --spacing-0-5: 2px;
+  --spacing-1: 4px;
+  --spacing-1-5: 6px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-14: 56px;
+  --spacing-18: 72px;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-button: 8px;
+  --radius-input: 8px;
+  --radius-card: 12px;
+  --radius-sheet: 20px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sheet: 0 -4px 24px rgba(36, 38, 31, 0.08);
+  --shadow-dialog: 0 8px 32px rgba(36, 38, 31, 0.12);
+  --shadow-drag: 0 4px 16px rgba(36, 38, 31, 0.1);
+
+  /* Typography */
+  --font-sans: var(--font-urbanist), system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-urbanist), system-ui, -apple-system, sans-serif;
+
+  /* Motion */
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 220ms;
+  --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* Focus */
+  --focus-ring: 2px solid #454F2C;
+  --focus-offset: 3px;
+}
+
+/* ================================================================
+   BASE STYLES
+   ================================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  background-color: var(--color-cream);
+  margin: 0;
+  min-height: 100dvh;
+}
+
+/* Tabular figures everywhere */
+* {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Serif headings */
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--color-olive);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+/* Links reset */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Input sizing to prevent iOS zoom */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-beige);
+  color: var(--color-text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+/* ================================================================
+   DARK MODE
+   ================================================================ */
+
+[data-theme="dark"],
+.dark {
+  --color-cream: #15170F;
+  --color-card-bg: #1D2117;
+  --color-white-warm: #FFFDF8;
+  --color-beige-light: #242A1C;
+  --color-beige: #353C28;
+  --color-text-primary: #F4F1EA;
+  --color-text-secondary: #BDC2B2;
+  --color-text-tertiary: #8F9583;
+  --color-border: #2E3423;
+  --color-border-strong: #475037;
+  --color-olive-deep: #10130B;
+  --color-olive: #73844D;
+  --color-olive-light: #8E9F63;
+  color-scheme: dark;
+}
+
+[data-theme="dark"] body,
+.dark body {
+  color: var(--color-text-primary);
+  background-color: var(--color-cream);
+}
+
+[data-theme="dark"] .bg-white-warm,
+.dark .bg-white-warm {
+  background-color: var(--color-card-bg, #1D2117);
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-theme="system"] {
+    --color-cream: #15170F;
+    --color-card-bg: #1D2117;
+    --color-white-warm: #FFFDF8;
+    --color-beige-light: #242A1C;
+    --color-beige: #353C28;
+    --color-text-primary: #F4F1EA;
+    --color-text-secondary: #BDC2B2;
+    --color-text-tertiary: #8F9583;
+    --color-border: #2E3423;
+    --color-border-strong: #475037;
+    --color-olive-deep: #10130B;
+    --color-olive: #73844D;
+    --color-olive-light: #8E9F63;
+    color-scheme: dark;
+  }
+  [data-theme="system"] body {
+    color: var(--color-text-primary);
+    background-color: var(--color-cream);
+  }
+  [data-theme="system"] .bg-white-warm {
+    background-color: var(--color-card-bg, #1D2117);
+  }
+}
+
+/* ================================================================
+   REDUCED MOTION
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ================================================================
+   UTILITY CLASSES
+   ================================================================ */
+
+/* Safe area padding for mobile bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Hide scrollbar but allow scroll */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Measurement value display */
+.measurement-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.02em;
+}
+
+/* Press scale for buttons */
+@media (hover: hover) {
+  .press-scale:active {
+    transform: scale(0.98);
+  }
+}
+
+/* Skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 25%,
+    var(--color-beige-light) 50%,
+    var(--color-border) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
