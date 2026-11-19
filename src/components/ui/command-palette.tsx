@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./avatar";
-import { customerRepo, orderRepo } from "@/lib/mock/store";
+import { customerRepo, orderRepo } from "@/lib/data/store";
 import type { Customer, Order } from "@/types";
 import {
   Search, Users, ShoppingBag, Ruler, Plus, Settings, CalendarDays, UserPlus, ClipboardList,

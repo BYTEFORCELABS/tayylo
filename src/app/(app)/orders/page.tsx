@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { StatusTag } from "@/components/ui/tag";
 import { Button } from "@/components/ui/button";
 import { Skeleton, EmptyState } from "@/components/ui/states";
-import { orderRepo, customerRepo } from "@/lib/mock/store";
+import { orderRepo, customerRepo } from "@/lib/data/store";
 import type { Order, OrderStatusName, Customer } from "@/types";
 
 const statusFilters: { key: OrderStatusName | "all"; label: string }[] = [
@@ -61,10 +61,10 @@ export default function OrdersPage() {
   return (
     <div className="max-w-3xl mx-auto pb-20">
       <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur-sm px-4 lg:px-8 pt-safe">
-        <div className="flex items-center justify-between pt-6 pb-4">
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-text-primary">Bespoke Orders</h1>
-            <p className="text-xs text-text-secondary mt-0.5">
+        <div className="flex items-center justify-between gap-3 pt-6 pb-4">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-serif text-2xl font-bold text-text-primary truncate">Bespoke Orders</h1>
+            <p className="text-xs text-text-secondary mt-0.5 truncate">
               Production tracking across cutting, sewing & fittings
             </p>
           </div>
@@ -145,7 +145,7 @@ export default function OrdersPage() {
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex items-center gap-3.5">
                       {/* Garment photo when we have a real one, otherwise a plain
-                          icon tile — avoids showing the same stock photo for
+                          icon tile - avoids showing the same stock photo for
                           multiple different orders */}
                       <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-[var(--radius-card)] overflow-hidden shrink-0 border border-border/80 bg-beige-light relative flex items-center justify-center">
                         {garmentImg ? (

@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { urbanist } from "@/lib/fonts";
 import { Toaster } from "@/components/ui/toast";
+import { AuthSessionProvider } from "@/components/session-provider";
+import { SplashScreen } from "@/components/splash-screen";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tayylo — The modern tailor\u2019s notebook",
+  title: "Tayylo | The modern tailor\u2019s notebook",
   description:
     "Find any client in two seconds, record measurements at the speed of a tape, and keep every measurement as a dated version.",
   manifest: "/manifest.json",
@@ -32,31 +34,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="light"
       className={urbanist.variable}
       suppressHydrationWarning
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function() {
-              try {
-                var theme = localStorage.getItem('tayylo_theme');
-                if (theme === 'dark') {
-                  document.documentElement.setAttribute('data-theme', 'dark');
-                  document.documentElement.classList.add('dark');
-                } else {
-                  document.documentElement.setAttribute('data-theme', 'light');
-                  document.documentElement.classList.remove('dark');
-                }
-              } catch (e) {}
-            })();`,
-          }}
-        />
-      </head>
       <body>
-        {children}
-        <Toaster />
+        <AuthSessionProvider>
+          <SplashScreen>{children}</SplashScreen>
+          <Toaster />
+        </AuthSessionProvider>
       </body>
     </html>
   );

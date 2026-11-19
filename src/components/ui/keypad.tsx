@@ -12,13 +12,22 @@ interface KeypadProps {
   nextLabel?: string;
   showPrevious?: boolean;
   className?: string;
+  /** Imperial uses tailor fractions (¼ ½ ¾); metric uses decimal precision instead. */
+  unit?: "imperial" | "metric";
 }
 
-const keypadKeys = [
+const imperialKeys = [
   ["1", "2", "3", "¼"],
   ["4", "5", "6", "½"],
   ["7", "8", "9", "¾"],
   [".", "0", "⌫", "Skip"],
+] as const;
+
+const metricKeys = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  [".", "0", "⌫"],
 ] as const;
 
 const Keypad: React.FC<KeypadProps> = ({
@@ -30,7 +39,10 @@ const Keypad: React.FC<KeypadProps> = ({
   nextLabel = "Next",
   showPrevious = true,
   className,
+  unit = "imperial",
 }) => {
+  const keypadKeys = unit === "metric" ? metricKeys : imperialKeys;
+  const gridClass = unit === "metric" ? "grid-cols-3" : "grid-cols-4";
   const handleKeyPress = React.useCallback(
     (key: string) => {
       switch (key) {
@@ -64,7 +76,7 @@ const Keypad: React.FC<KeypadProps> = ({
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       {/* Keypad grid */}
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className={cn("grid gap-1.5", gridClass)}>
         {keypadKeys.flat().map((key) => (
           <button
             key={key}
@@ -109,6 +121,17 @@ const Keypad: React.FC<KeypadProps> = ({
           </button>
         ))}
       </div>
+
+      {/* Metric layout has no in-grid Skip key (grid is fully packed with digits) */}
+      {unit === "metric" && onSkip && (
+        <button
+          type="button"
+          onClick={onSkip}
+          className="text-xs text-text-tertiary hover:text-text-secondary self-center py-1"
+        >
+          Skip this field
+        </button>
+      )}
 
       {/* Navigation buttons */}
       <div className="flex gap-2 mt-1">

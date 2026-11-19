@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, ClientListSkeleton } from "@/components/ui/states";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Input } from "@/components/ui/input";
-import { customerRepo, measurementRepo } from "@/lib/mock/store";
+import { customerRepo, measurementRepo } from "@/lib/data/store";
 import type { Customer, MeasurementSet } from "@/types";
 import { toast } from "sonner";
 
@@ -115,10 +115,10 @@ function ClientsPageInner() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Header — fixed on scroll */}
+      {/* Header - fixed on scroll */}
       <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur-sm px-4 lg:px-8 pt-safe">
-        <div className="flex items-center justify-between pt-6 pb-4">
-          <h1 className="font-serif text-2xl text-text-primary">Clients</h1>
+        <div className="flex items-center justify-between gap-3 pt-6 pb-4">
+          <h1 className="font-serif text-2xl text-text-primary truncate">Clients</h1>
           <Button variant="primary" size="sm" onClick={() => setAddOpen(true)}>
             <Plus size={16} strokeWidth={2} />
             Add client
@@ -255,7 +255,7 @@ function ClientsPageInner() {
             type="email"
             value={newEmail}
             onChange={e => setNewEmail(e.target.value)}
-            helperText="Optional — for sending receipts"
+            helperText="Optional, for sending receipts"
           />
           <Input
             label="Notes"

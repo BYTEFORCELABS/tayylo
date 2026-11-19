@@ -32,14 +32,20 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { customerRepo, measurementRepo, templateRepo, businessRepo } from "@/lib/mock/store";
+import { customerRepo, measurementRepo, templateRepo, businessRepo } from "@/lib/data/store";
 import { getGarmentImage } from "@/lib/mock/seed-data";
 import type { Customer, MeasurementTemplate, MeasurementSet, Business } from "@/types";
 import { toast } from "sonner";
 
-function parseToMm(raw: string): number {
-  let val = 0;
+type Unit = "imperial" | "metric";
+
+function parseToMm(raw: string, unit: Unit): number {
   const clean = raw.trim();
+  if (unit === "metric") {
+    // Metric capture is plain centimetres with decimal precision
+    return Math.round((parseFloat(clean) || 0) * 10);
+  }
+  let val = 0;
   if (clean.includes("¼")) {
     val = parseFloat(clean.replace("¼", "")) + 0.25;
   } else if (clean.includes("½")) {
@@ -52,7 +58,10 @@ function parseToMm(raw: string): number {
   return Math.round(val * 25.4);
 }
 
-function rawFromMm(mm: number): string {
+function rawFromMm(mm: number, unit: Unit): string {
+  if (unit === "metric") {
+    return (mm / 10).toFixed(1);
+  }
   const inches = mm / 25.4;
   const whole = Math.floor(inches);
   const frac = inches - whole;
@@ -86,6 +95,9 @@ function MeasurePageInner() {
   const [gridMode, setGridMode] = React.useState(false);
   const [reviewNote, setReviewNote] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+
+  const unit: Unit = business?.unitSystem === "metric" ? "metric" : "imperial";
+  const unitLabel = unit === "metric" ? "cm" : "in";
 
   // Success dialog after saving
   const [savedSet, setSavedSet] = React.useState<MeasurementSet | null>(null);
@@ -167,7 +179,7 @@ function MeasurePageInner() {
       // Pre-fill from previous
       const prefilled: Record<string, string> = {};
       prev.values.forEach(v => {
-        prefilled[v.fieldKey] = rawFromMm(v.valueMm);
+        prefilled[v.fieldKey] = rawFromMm(v.valueMm, unit);
       });
       setValues(prefilled);
     } else {
@@ -200,7 +212,7 @@ function MeasurePageInner() {
       .map(f => ({
         fieldKey: f.key,
         labelSnapshot: f.label,
-        valueMm: parseToMm(values[f.key]),
+        valueMm: parseToMm(values[f.key], unit),
         rawInput: values[f.key],
       }));
 
@@ -249,17 +261,17 @@ function MeasurePageInner() {
   const getPreviousValue = (fieldKey: string) => {
     if (!previousSet) return undefined;
     const v = previousSet.values.find(x => x.fieldKey === fieldKey);
-    return v ? rawFromMm(v.valueMm) : undefined;
+    return v ? rawFromMm(v.valueMm, unit) : undefined;
   };
 
   const getWarning = (fieldKey: string, raw: string) => {
     if (!raw || !template) return undefined;
     const field = template.fields.find(f => f.key === fieldKey);
     if (!field || !field.minMm || !field.maxMm) return undefined;
-    const mm = parseToMm(raw);
+    const mm = parseToMm(raw, unit);
     if (mm < field.minMm || mm > field.maxMm) {
       const prev = getPreviousValue(fieldKey);
-      if (prev) return `Noticeably different from last time (${prev} in). Double check.`;
+      if (prev) return `Noticeably different from last time (${prev} ${unitLabel}). Double check.`;
       return "Measurement seems outside expected range. Please verify.";
     }
     return undefined;
@@ -410,7 +422,7 @@ function MeasurePageInner() {
         {/* 15 Starter Templates Grid with Real Garment Photography */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 pb-8">
           {filteredTemplates.map(t => {
-            const garmentImg = getGarmentImage(t.id);
+            const garmentImg = getGarmentImage(t.name);
             return (
               <button
                 key={t.id}
@@ -475,7 +487,7 @@ function MeasurePageInner() {
         <div className="p-3 rounded-[var(--radius-card)] bg-white-warm border border-border flex items-center gap-3 mb-4 shadow-xs">
           <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-border">
             <img
-              src={getGarmentImage(template?.id)}
+              src={getGarmentImage(template?.name)}
               alt={template?.name || "Garment"}
               className="w-full h-full object-cover"
             />
@@ -495,8 +507,8 @@ function MeasurePageInner() {
               <MeasurementCell
                 key={f.key}
                 label={f.label}
-                value={v || "—"}
-                unit="in"
+                value={v || "-"}
+                unit={unitLabel}
                 highlighted={!!changed}
               />
             );
@@ -592,7 +604,7 @@ function MeasurePageInner() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-cream max-w-xl mx-auto">
-      {/* Top Bar with Client Avatar Photo — fixed on scroll */}
+      {/* Top Bar with Client Avatar Photo - fixed on scroll */}
       <div className="sticky top-0 z-20 bg-white-warm/95 backdrop-blur-xs">
         <div className="flex items-center justify-between px-4 pt-safe pt-3 pb-2 border-b border-border">
           <button
@@ -642,8 +654,8 @@ function MeasurePageInner() {
               >
                 <MeasurementCell
                   label={f.label}
-                  value={values[f.key] || "—"}
-                  unit="in"
+                  value={values[f.key] || "-"}
+                  unit={unitLabel}
                 />
               </div>
             ))}
@@ -660,7 +672,7 @@ function MeasurePageInner() {
             <div className="p-3 rounded-[var(--radius-card)] bg-white-warm border border-border shadow-xs flex items-center gap-3.5 mb-2">
               <div className="w-14 h-14 rounded-lg overflow-hidden border border-border/80 shrink-0 bg-dark-surface-1">
                 <img
-                  src={getGarmentImage(template?.id)}
+                  src={getGarmentImage(template?.name)}
                   alt={template?.name || "Garment"}
                   className="w-full h-full object-cover"
                 />
@@ -694,13 +706,13 @@ function MeasurePageInner() {
                 <span className="font-serif text-5xl md:text-6xl font-bold text-text-primary tracking-tight measurement-value">
                   {currentValue || "0"}
                 </span>
-                <span className="text-lg text-text-tertiary font-medium">inches</span>
+                <span className="text-lg text-text-tertiary font-medium">{unit === "metric" ? "cm" : "inches"}</span>
               </div>
 
               {/* Previous value sanity check */}
               {prevVal && (
                 <p className="text-xs text-text-secondary">
-                  Last time: <span className="font-semibold text-text-primary">{prevVal} in</span>
+                  Last time: <span className="font-semibold text-text-primary">{prevVal} {unitLabel}</span>
                 </p>
               )}
 
@@ -723,6 +735,7 @@ function MeasurePageInner() {
               onPrevious={handlePrevious}
               onSkip={handleSkip}
               nextLabel={fieldIndex < fields.length - 1 ? `Next: ${fields[fieldIndex + 1]?.label}` : "Review"}
+              unit={unit}
             />
           </div>
         </div>

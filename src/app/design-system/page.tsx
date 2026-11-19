@@ -54,13 +54,6 @@ const statusColors = [
   { name: "Info", value: "#476A80", className: "bg-info" },
 ];
 
-const darkColors = [
-  { name: "Surface 1", value: "#15170F", className: "bg-dark-surface-1" },
-  { name: "Surface 2", value: "#1D2017", className: "bg-dark-surface-2" },
-  { name: "Surface 3", value: "#272B1F", className: "bg-dark-surface-3" },
-  { name: "Dark Olive", value: "#A9B386", className: "bg-dark-olive" },
-];
-
 export default function DesignSystemPage() {
   const [keypadValue, setKeypadValue] = React.useState("42");
   const [sheetOpen, setSheetOpen] = React.useState(false);
@@ -127,7 +120,7 @@ export default function DesignSystemPage() {
             SECTION: Colours
             ============================================================ */}
         <section>
-          <SectionTitle>Colours — Brand</SectionTitle>
+          <SectionTitle>Colours - Brand</SectionTitle>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
             {colors.map((c) => (
               <div key={c.name} className="flex flex-col gap-2">
@@ -166,18 +159,6 @@ export default function DesignSystemPage() {
             ))}
           </div>
 
-          <SubTitle>Dark Mode</SubTitle>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {darkColors.map((c) => (
-              <div key={c.name} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full border border-border" style={{ backgroundColor: c.value }} />
-                <div>
-                  <p className="text-xs font-medium">{c.name}</p>
-                  <p className="text-xs text-text-tertiary font-mono">{c.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
         </section>
 
         {/* ============================================================
@@ -187,7 +168,7 @@ export default function DesignSystemPage() {
           <SectionTitle>Typography</SectionTitle>
           <div className="space-y-4">
             <div className="bg-white-warm border border-border rounded-[var(--radius-card)] p-6 space-y-4">
-              <p className="text-xs text-text-tertiary uppercase tracking-wider">Urbanist — Interface</p>
+              <p className="text-xs text-text-tertiary uppercase tracking-wider">Urbanist - Interface</p>
               <p className="text-3xl font-bold">The quick brown fox jumps</p>
               <p className="text-xl font-semibold">Measurements saved for John Smith</p>
               <p className="text-base font-medium">A standard body text line in Urbanist</p>
@@ -195,7 +176,7 @@ export default function DesignSystemPage() {
               <p className="text-xs text-text-tertiary">Tertiary text, timestamps, labels</p>
             </div>
             <div className="bg-white-warm border border-border rounded-[var(--radius-card)] p-6 space-y-4">
-              <p className="text-xs text-text-tertiary uppercase tracking-wider">Urbanist — Titles & Names</p>
+              <p className="text-xs text-text-tertiary uppercase tracking-wider">Urbanist - Titles & Names</p>
               <p className="font-serif text-4xl font-medium">Good morning, Ijeoma</p>
               <p className="font-serif text-2xl">John Smith</p>
               <p className="font-serif text-lg italic">Your client list is empty</p>
@@ -322,7 +303,7 @@ export default function DesignSystemPage() {
             <Input
               label="Email"
               placeholder="client@example.com"
-              helperText="Optional — for sending receipts"
+              helperText="Optional, for sending receipts"
             />
           </div>
         </section>
@@ -370,7 +351,7 @@ export default function DesignSystemPage() {
                 Chest
               </p>
               <p className="text-[58px] font-semibold measurement-value text-text-primary leading-none">
-                {keypadValue || "—"}
+                {keypadValue || "-"}
               </p>
               <p className="text-sm text-text-tertiary mt-1">inches</p>
             </div>

@@ -28,7 +28,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { orderRepo, customerRepo } from "@/lib/mock/store";
+import { orderRepo, customerRepo } from "@/lib/data/store";
 import { getGarmentImage } from "@/lib/mock/seed-data";
 import type { Order, OrderStatusName, FittingAdjustment, Customer } from "@/types";
 import { toast } from "sonner";
@@ -178,7 +178,7 @@ export default function OrderDetailPage() {
 
   return (
     <div className="max-w-3xl mx-auto pb-16">
-      {/* Slim bar — fixed on scroll so context is never lost */}
+      {/* Slim bar - fixed on scroll so context is never lost */}
       <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur-sm px-4 lg:px-8 pt-safe">
         <div className="flex items-center gap-3 py-3">
           <button

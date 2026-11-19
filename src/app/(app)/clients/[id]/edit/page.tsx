@@ -9,7 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { customerRepo } from "@/lib/mock/store";
+import { customerRepo } from "@/lib/data/store";
 import type { Customer } from "@/types";
 import { toast } from "sonner";
 

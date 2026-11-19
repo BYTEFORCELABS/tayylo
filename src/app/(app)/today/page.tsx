@@ -13,8 +13,6 @@ import {
   CreditCard,
   X,
   ChevronRight,
-  Sun,
-  Moon,
   Shirt,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +32,7 @@ import {
   businessRepo,
   customerRepo,
   orderRepo,
-} from "@/lib/mock/store";
+} from "@/lib/data/store";
 import { garmentCategories, getGarmentImage } from "@/lib/mock/seed-data";
 import type { Business, Customer, Order } from "@/types";
 import { toast } from "sonner";
@@ -71,9 +69,6 @@ export default function TodayPage() {
   // Filter category
   const [selectedCategory, setSelectedCategory] = React.useState("all");
 
-  // Theme state
-  const [currentTheme, setCurrentTheme] = React.useState<"light" | "dark">("light");
-
   // Notifications Modal
   const [showNotifications, setShowNotifications] = React.useState(false);
 
@@ -91,33 +86,6 @@ export default function TodayPage() {
     if (!el) return;
     const index = Math.round(el.scrollLeft / (el.clientWidth * 0.88 + 12));
     setCardIndex(Math.max(0, Math.min(2, index)));
-  };
-
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem("tayylo_theme");
-      if (saved === "dark") {
-        setCurrentTheme("dark");
-      } else {
-        setCurrentTheme("light");
-      }
-    } catch {}
-  }, []);
-
-  const toggleTheme = () => {
-    const next = currentTheme === "light" ? "dark" : "light";
-    setCurrentTheme(next);
-    try {
-      localStorage.setItem("tayylo_theme", next);
-      document.documentElement.setAttribute("data-theme", next);
-      if (next === "dark") {
-        document.documentElement.classList.add("dark");
-        toast("Atelier Dark Mode enabled");
-      } else {
-        document.documentElement.classList.remove("dark");
-        toast("Warm Beige Light Mode enabled");
-      }
-    } catch {}
   };
 
   React.useEffect(() => {
@@ -265,21 +233,8 @@ export default function TodayPage() {
           </div>
         </div>
 
-        {/* Right Actions: Theme Toggle & Notification Bell */}
+        {/* Right Actions: Notification Bell */}
         <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={toggleTheme}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-text-primary hover:bg-beige-light transition-colors active:scale-[0.95]"
-            title={currentTheme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-            aria-label="Toggle Theme"
-          >
-            {currentTheme === "dark" ? (
-              <Sun size={19} strokeWidth={1.75} />
-            ) : (
-              <Moon size={19} strokeWidth={1.75} />
-            )}
-          </button>
-
           <button
             onClick={() => setShowNotifications(true)}
             className="relative w-10 h-10 rounded-full flex items-center justify-center text-text-primary hover:bg-beige-light transition-colors active:scale-[0.95]"
@@ -468,17 +423,17 @@ export default function TodayPage() {
           </button>
         </div>
 
-        <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-4 px-4 pb-2">
+        <div className="flex gap-2.5 overflow-x-auto snap-x snap-mandatory scrollbar-none -mx-4 px-4 pb-2">
           {garmentCategories.map(cat => {
             const isSelected = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className="flex flex-col items-center gap-1.5 shrink-0 snap-start w-20 group transition-transform active:scale-[0.96]"
+                className="flex flex-col items-center gap-1 shrink-0 snap-start w-16 group transition-transform active:scale-[0.96]"
               >
                 <div
-                  className={`w-20 h-24 rounded-xl overflow-hidden transition-all ${
+                  className={`w-16 h-16 rounded-xl overflow-hidden transition-all ${
                     isSelected ? "ring-2 ring-olive" : "ring-1 ring-border"
                   }`}
                 >
@@ -489,7 +444,7 @@ export default function TodayPage() {
                   />
                 </div>
                 <span
-                  className={`text-xs text-center transition-colors ${
+                  className={`text-[11px] text-center transition-colors ${
                     isSelected ? "font-bold text-olive" : "font-medium text-text-primary"
                   }`}
                 >
@@ -546,7 +501,7 @@ export default function TodayPage() {
                   <CardContent className="p-0">
                     <div className="flex items-center gap-3.5">
                       {/* Garment photo when we have a real one, otherwise a plain
-                          icon tile — avoids showing the same stock photo for
+                          icon tile - avoids showing the same stock photo for
                           multiple different orders */}
                       <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[var(--radius-card)] overflow-hidden shrink-0 bg-beige-light flex items-center justify-center">
                         {garmentImg ? (

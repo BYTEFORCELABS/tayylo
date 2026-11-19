@@ -43,7 +43,7 @@ const MeasurementDisplay: React.FC<MeasurementDisplayProps> = ({
             valueSizeClass
           )}
         >
-          {value || "—"}
+          {value || "-"}
         </span>
         {delta !== undefined && delta !== 0 && (
           <DeltaChip value={delta} />
@@ -92,7 +92,7 @@ const MeasurementCell: React.FC<MeasurementCellProps> = ({
       <span className="text-xs text-text-tertiary truncate">{label}</span>
       <div className="flex items-baseline gap-1.5">
         <span className="text-2xl font-semibold measurement-value text-text-primary">
-          {value || "—"}
+          {value || "-"}
         </span>
         <span className="text-xs text-text-tertiary">{unit}</span>
         {delta !== undefined && delta !== 0 && (

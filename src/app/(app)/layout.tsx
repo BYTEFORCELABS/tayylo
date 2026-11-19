@@ -3,14 +3,20 @@
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   CalendarDays, Users, Plus, ShoppingBag, MoreHorizontal,
   Ruler, UserPlus, ClipboardList, Settings, FileUp, FileDown, Palette,
   Search,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CommandPalette, useCommandPalette } from "@/components/ui/command-palette";
+import { businessRepo } from "@/lib/data/store";
+import loadingMark from "../../../public/tayylo-logo-lottie-pack/tayylo-symbol-olive.json";
+
+const Lottie = dynamic(() => import("lottie-react").then(mod => mod.Lottie), { ssr: false });
 
 const tabs = [
   { key: "today", label: "Today", icon: CalendarDays, href: "/today" },
@@ -33,10 +39,45 @@ const sidebarBottom = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { status } = useSession();
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const { open: cmdOpen, setOpen: setCmdOpen } = useCommandPalette();
+  const [checkingAccess, setCheckingAccess] = React.useState(true);
 
   const activeTab = tabs.find(t => t.href !== "#" && pathname.startsWith(t.href))?.key || "today";
+
+  React.useEffect(() => {
+    if (status === "loading") return;
+
+    if (status === "unauthenticated") {
+      router.replace("/welcome");
+      return;
+    }
+
+    let active = true;
+    businessRepo.get().then(business => {
+      if (!active) return;
+      if (!business) {
+        router.replace("/onboarding");
+        return;
+      }
+      setCheckingAccess(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [status, router]);
+
+  if (checkingAccess) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-cream">
+        <div className="w-16 h-16">
+          <Lottie src={loadingMark} loop autoplay />
+        </div>
+        <span className="sr-only">Loading your atelier...</span>
+      </div>
+    );
+  }
 
   const handleTabClick = (tab: typeof tabs[0]) => {
     if (tab.key === "add") {
@@ -141,10 +182,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <Plus size={22} strokeWidth={2} />
                   </div>
                 ) : (
-                  <>
-                    <tab.icon size={22} strokeWidth={1.5} />
-                    <span className="text-[10px] font-medium">{tab.label}</span>
-                  </>
+                  <tab.icon size={24} strokeWidth={1.5} />
                 )}
               </button>
             );

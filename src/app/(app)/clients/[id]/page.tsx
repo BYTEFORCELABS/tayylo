@@ -35,7 +35,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { customerRepo, measurementRepo, orderRepo, businessRepo } from "@/lib/mock/store";
+import { customerRepo, measurementRepo, orderRepo, businessRepo } from "@/lib/data/store";
 import { getGarmentImage } from "@/lib/mock/seed-data";
 import type { Customer, MeasurementSet, Order, Business, Media } from "@/types";
 import { toast } from "sonner";
@@ -221,7 +221,7 @@ export default function ClientProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto pb-12">
-      {/* Slim bar — fixed on scroll so context is never lost */}
+      {/* Slim bar - fixed on scroll so context is never lost */}
       <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur-sm px-4 lg:px-8 pt-safe">
         <div className="flex items-center gap-3 py-3">
           <button
@@ -687,7 +687,7 @@ export default function ClientProfilePage() {
                           {rawFromMm(curV.valueMm)} in
                         </td>
                         <td className="py-2 text-right measurement-value text-text-secondary">
-                          {histV ? `${rawFromMm(histV.valueMm)} in` : "—"}
+                          {histV ? `${rawFromMm(histV.valueMm)} in` : "-"}
                         </td>
                         <td className="py-2 text-right">
                           {diffInfo ? (

@@ -6,7 +6,7 @@ import { ArrowLeft, Plus, X, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar } from "@/components/ui/avatar";
-import { customerRepo, measurementRepo, orderRepo } from "@/lib/mock/store";
+import { customerRepo, measurementRepo, orderRepo } from "@/lib/data/store";
 import type { Customer, MeasurementSet } from "@/types";
 import { toast } from "sonner";
 

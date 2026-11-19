@@ -2,29 +2,26 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   ChevronRight,
-  Moon,
-  Sun,
-  Monitor,
+  ChevronDown,
+  ChevronUp,
   Trash2,
-  RotateCcw,
   FileDown,
   FileUp,
   Palette,
   Edit2,
-  Copy,
   Ruler,
-  Check,
   Users,
   Download,
   UploadCloud,
-  Calendar,
+  LogOut,
+  Layers,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tag } from "@/components/ui/tag";
+import { Avatar } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogTrigger,
@@ -40,7 +37,8 @@ import {
   templateRepo,
   exportData,
   resetStore,
-} from "@/lib/mock/store";
+} from "@/lib/data/store";
+import { signOut } from "next-auth/react";
 import type { Business, MeasurementTemplate } from "@/types";
 import { toast } from "sonner";
 
@@ -48,7 +46,6 @@ export default function SettingsPage() {
   const router = useRouter();
   const [business, setBusiness] = React.useState<Business | null>(null);
   const [templates, setTemplates] = React.useState<MeasurementTemplate[]>([]);
-  const [theme, setTheme] = React.useState("system");
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   // Business profile modal
@@ -71,29 +68,14 @@ export default function SettingsPage() {
 
   React.useEffect(() => {
     businessRepo.get().then(b => {
+      if (!b) return;
       setBusiness(b);
       setBizName(b.name);
       setOwnerName(b.ownerName);
       setBizCurrency(b.currency);
     });
     templateRepo.list().then(setTemplates);
-
-    // Initial theme
-    const savedTheme = localStorage.getItem("tayylo_theme") || "system";
-    setTheme(savedTheme);
   }, []);
-
-  const handleTheme = (t: string) => {
-    setTheme(t);
-    localStorage.setItem("tayylo_theme", t);
-    document.documentElement.setAttribute("data-theme", t);
-    if (t === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    toast.success(`Theme set to ${t}`);
-  };
 
   const handleSaveBusiness = async () => {
     if (!bizName.trim()) return;
@@ -105,16 +87,6 @@ export default function SettingsPage() {
     setBusiness(updated);
     setBizOpen(false);
     toast.success("Business profile updated");
-  };
-
-  const handleDuplicateTemplate = async (t: MeasurementTemplate) => {
-    const copy = await templateRepo.duplicate(t.id, `${t.name} (Custom)`);
-    if (copy) {
-      const all = await templateRepo.list();
-      setTemplates(all);
-      setSelectedTemplate(copy);
-      toast.success(`Created custom template: ${copy.name}`);
-    }
   };
 
   // Contacts Simulator Import
@@ -162,8 +134,8 @@ export default function SettingsPage() {
   };
 
   // Downloads for export
-  const handleDownloadJson = () => {
-    const { jsonStr } = exportData();
+  const handleDownloadJson = async () => {
+    const { jsonStr } = await exportData();
     const blob = new Blob([jsonStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -174,8 +146,8 @@ export default function SettingsPage() {
     toast.success("Downloaded complete JSON database archive");
   };
 
-  const handleDownloadCsv = () => {
-    const { csvStr } = exportData();
+  const handleDownloadCsv = async () => {
+    const { csvStr } = await exportData();
     const blob = new Blob([csvStr], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -186,16 +158,15 @@ export default function SettingsPage() {
     toast.success("Downloaded clients CSV spreadsheet");
   };
 
-  const handleReset = () => {
-    resetStore();
-    toast.success("Demo data reset to clean initial state");
+  const handleDeleteAccount = async () => {
+    await resetStore();
+    setDeleteOpen(false);
+    toast.success("Workspace wiped");
     window.location.reload();
   };
 
-  const handleDeleteAccount = () => {
-    resetStore();
-    setDeleteOpen(false);
-    toast.success("Account reset");
+  const handleSignOut = async () => {
+    await signOut({ redirect: false });
     router.push("/welcome");
   };
 
@@ -210,47 +181,29 @@ export default function SettingsPage() {
       {/* Business profile */}
       <section className="mb-6">
         <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Business</h2>
-        <Card>
+        <Card className="bg-gradient-to-br from-olive/[0.06] to-transparent">
           <CardContent>
             <div
-              className="flex items-center gap-4 cursor-pointer hover:bg-beige-light/20 -mx-4 -my-2 p-4 rounded-[var(--radius-card)] transition-colors"
+              className="flex items-center gap-4 cursor-pointer -mx-4 -my-2 p-4 rounded-[var(--radius-card)] transition-colors hover:bg-olive/5"
               onClick={() => setBizOpen(true)}
             >
-              <div className="w-12 h-12 rounded-[var(--radius-card)] bg-beige-light flex items-center justify-center shrink-0">
-                <Image src="/symbol_olive.png" alt="Tayylo" width={28} height={28} style={{ width: "auto", height: "auto" }} />
-              </div>
+              <Avatar
+                name={business?.ownerName || business?.name || "Tailor"}
+                size="lg"
+                className="ring-2 ring-white-warm shadow-sm"
+              />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-text-primary truncate">{business?.name || "My Studio"}</p>
-                <p className="text-xs text-text-secondary">
-                  Owner: {business?.ownerName || "Tailor"} · Currency: {business?.currency || "NGN"}
+                <p className="font-serif text-lg font-bold text-text-primary truncate leading-tight">
+                  {business?.name || "My Studio"}
+                </p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  {business?.ownerName || "Tailor"} · {business?.currency || "NGN"}
                 </p>
               </div>
-              <div className="flex items-center gap-1 text-xs text-olive font-medium">
+              <div className="flex items-center gap-1 text-xs text-olive font-semibold shrink-0">
                 <Edit2 size={14} />
                 <span>Edit</span>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Studio */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Studio</h2>
-        <Card>
-          <CardContent>
-            <div
-              className="flex items-center gap-4 cursor-pointer hover:bg-beige-light/20 -mx-4 -my-2 p-4 rounded-[var(--radius-card)] transition-colors"
-              onClick={() => router.push("/appointments")}
-            >
-              <div className="w-12 h-12 rounded-[var(--radius-card)] bg-beige-light flex items-center justify-center shrink-0 text-olive">
-                <Calendar size={22} strokeWidth={1.75} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-text-primary truncate">Studio Appointments</p>
-                <p className="text-xs text-text-secondary">Fittings, measurements & pickups on the calendar</p>
-              </div>
-              <ChevronRight size={18} className="text-text-tertiary shrink-0" />
             </div>
           </CardContent>
         </Card>
@@ -261,12 +214,17 @@ export default function SettingsPage() {
         <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Measurements</h2>
         <Card>
           <CardContent>
-            <div className="flex items-center justify-between py-1">
-              <div>
-                <span className="text-sm font-medium text-text-primary block">Unit system</span>
-                <span className="text-xs text-text-tertiary">Default unit for numeric keypad entry</span>
+            <div className="flex items-center justify-between gap-3 py-1">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
+                  <Ruler size={16} className="text-olive" strokeWidth={1.75} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-text-primary block">Unit system</span>
+                  <span className="text-xs text-text-tertiary">Default unit for numeric keypad entry</span>
+                </div>
               </div>
-              <div className="flex gap-1 bg-beige-light rounded-[var(--radius-button)] p-1">
+              <div className="flex gap-1 bg-beige-light rounded-[var(--radius-button)] p-1 shrink-0">
                 <button
                   onClick={() => businessRepo.update({ unitSystem: "imperial" }).then(setBusiness)}
                   className={`px-3 py-1 rounded-[var(--radius-sm)] text-xs font-medium transition-colors ${
@@ -296,51 +254,22 @@ export default function SettingsPage() {
           <CardContent>
             <button
               onClick={() => setTemplateOpen(true)}
-              className="flex items-center justify-between w-full py-1 text-left"
+              className="flex items-center justify-between gap-3 w-full py-1 text-left -mx-4 px-4 rounded-[var(--radius-card)] hover:bg-beige-light/30 transition-colors"
             >
-              <div>
-                <span className="text-sm font-medium text-text-primary block">Measurement templates library</span>
-                <span className="text-xs text-text-tertiary">Western & traditional garment fields</span>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
+                  <Layers size={16} className="text-olive" strokeWidth={1.75} />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-sm font-medium text-text-primary block">Measurement templates library</span>
+                  <span className="text-xs text-text-tertiary">Western & traditional garment fields</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 text-olive font-medium text-xs">
+              <div className="flex items-center gap-1.5 text-olive font-medium text-xs shrink-0">
                 <span>{templates.length} templates</span>
                 <ChevronRight size={16} strokeWidth={1.5} />
               </div>
             </button>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Theme */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Appearance</h2>
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between py-1">
-              <div>
-                <span className="text-sm font-medium text-text-primary block">Theme</span>
-                <span className="text-xs text-text-tertiary">Warm cream or deep olive dark mode</span>
-              </div>
-              <div className="flex gap-1 bg-beige-light rounded-[var(--radius-button)] p-1">
-                {[
-                  { key: "system", icon: Monitor, label: "System" },
-                  { key: "light", icon: Sun, label: "Light" },
-                  { key: "dark", icon: Moon, label: "Dark" },
-                ].map(t => (
-                  <button
-                    key={t.key}
-                    onClick={() => handleTheme(t.key)}
-                    className={`flex items-center gap-1.5 px-3 py-1 rounded-[var(--radius-sm)] text-xs font-medium transition-all ${
-                      theme === t.key ? "bg-white-warm text-text-primary shadow-sm font-semibold" : "text-text-tertiary hover:text-text-primary"
-                    }`}
-                    aria-label={t.label}
-                  >
-                    <t.icon size={13} strokeWidth={1.5} />
-                    <span>{t.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
           </CardContent>
         </Card>
       </section>
@@ -352,9 +281,11 @@ export default function SettingsPage() {
           <CardContent className="space-y-0">
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-3 w-full py-3.5 border-b border-border text-left hover:bg-beige-light/30 transition-colors -mx-4 px-4"
+              className="flex items-center gap-3 w-full py-3 border-b border-border text-left hover:bg-beige-light/30 transition-colors -mx-4 px-4"
             >
-              <FileUp size={18} className="text-olive" strokeWidth={1.5} />
+              <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
+                <FileUp size={16} className="text-olive" strokeWidth={1.75} />
+              </div>
               <div className="flex-1">
                 <span className="text-sm font-medium text-text-primary block">Import clients</span>
                 <span className="text-xs text-text-tertiary">From phone contacts or CSV spreadsheet</span>
@@ -364,24 +295,36 @@ export default function SettingsPage() {
 
             <button
               onClick={() => setExportOpen(true)}
-              className="flex items-center gap-3 w-full py-3.5 border-b border-border text-left hover:bg-beige-light/30 transition-colors -mx-4 px-4"
+              className="flex items-center gap-3 w-full py-3 border-b border-border text-left hover:bg-beige-light/30 transition-colors -mx-4 px-4"
             >
-              <FileDown size={18} className="text-olive" strokeWidth={1.5} />
+              <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
+                <FileDown size={16} className="text-olive" strokeWidth={1.75} />
+              </div>
               <div className="flex-1">
                 <span className="text-sm font-medium text-text-primary block">Export archive</span>
                 <span className="text-xs text-text-tertiary">Download full JSON backup or clients CSV</span>
               </div>
               <ChevronRight size={16} className="text-text-tertiary" strokeWidth={1.5} />
             </button>
+          </CardContent>
+        </Card>
+      </section>
 
+      {/* Account */}
+      <section className="mb-6">
+        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Account</h2>
+        <Card>
+          <CardContent>
             <button
-              onClick={handleReset}
-              className="flex items-center gap-3 w-full py-3.5 text-left hover:bg-beige-light/30 transition-colors -mx-4 px-4"
+              onClick={handleSignOut}
+              className="flex items-center gap-3 w-full py-1 text-left -mx-4 px-4 rounded-[var(--radius-card)] hover:bg-beige-light/30 transition-colors"
             >
-              <RotateCcw size={18} className="text-text-tertiary" strokeWidth={1.5} />
+              <div className="w-9 h-9 rounded-full bg-beige-light flex items-center justify-center shrink-0">
+                <LogOut size={16} className="text-text-secondary" strokeWidth={1.75} />
+              </div>
               <div className="flex-1">
-                <span className="text-sm font-medium text-text-primary block">Reset demo data</span>
-                <span className="text-xs text-text-tertiary">Restore initial 25 clients and seed orders</span>
+                <span className="text-sm font-medium text-text-primary block">Sign out</span>
+                <span className="text-xs text-text-tertiary">You&apos;ll need to sign back in to continue</span>
               </div>
             </button>
           </CardContent>
@@ -394,9 +337,11 @@ export default function SettingsPage() {
           <CardContent>
             <button
               onClick={() => router.push("/design-system")}
-              className="flex items-center gap-3 w-full py-1 text-left"
+              className="flex items-center gap-3 w-full py-1 text-left -mx-4 px-4 rounded-[var(--radius-card)] hover:bg-beige-light/30 transition-colors"
             >
-              <Palette size={18} className="text-olive" strokeWidth={1.5} />
+              <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
+                <Palette size={16} className="text-olive" strokeWidth={1.75} />
+              </div>
               <div className="flex-1">
                 <span className="text-sm font-medium text-text-primary block">Design System Showcase</span>
                 <span className="text-xs text-text-tertiary">All UI tokens, typography, and interactive components</span>
@@ -420,7 +365,8 @@ export default function SettingsPage() {
             <DialogHeader>
               <DialogTitle>Reset workspace data?</DialogTitle>
               <DialogDescription>
-                This will clear custom client records and restore clean initial state.
+                This permanently deletes every client, order, and measurement in your workspace.
+                Your sign-in and business profile stay intact.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -447,29 +393,29 @@ export default function SettingsPage() {
 
           <div className="space-y-4 py-2">
             <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">Studio / Brand Name</label>
+              <label className="block text-sm font-semibold text-text-primary mb-1.5">Studio / Brand Name</label>
               <input
                 type="text"
                 value={bizName}
                 onChange={e => setBizName(e.target.value)}
-                className="w-full h-10 px-3 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive"
+                className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">Owner / Lead Tailor</label>
+              <label className="block text-sm font-semibold text-text-primary mb-1.5">Owner / Lead Tailor</label>
               <input
                 type="text"
                 value={ownerName}
                 onChange={e => setOwnerName(e.target.value)}
-                className="w-full h-10 px-3 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive"
+                className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">Default Currency</label>
+              <label className="block text-sm font-semibold text-text-primary mb-1.5">Default Currency</label>
               <select
                 value={bizCurrency}
                 onChange={e => setBizCurrency(e.target.value)}
-                className="w-full h-10 px-3 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary"
+                className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive"
               >
                 <option value="NGN">NGN (₦) · Nigerian Naira</option>
                 <option value="USD">USD ($) · US Dollar</option>
@@ -525,14 +471,19 @@ export default function SettingsPage() {
                       </div>
                       <p className="text-xs text-text-secondary mt-0.5">{t.fields.length} measurement points</p>
                     </div>
-                    <span className="text-xs text-olive font-medium">
-                      {isSelected ? "Hide fields ▲" : "View fields ▼"}
+                    <span className="flex items-center gap-1 text-xs text-olive font-medium shrink-0">
+                      {isSelected ? "Hide fields" : "View fields"}
+                      {isSelected ? (
+                        <ChevronUp size={14} strokeWidth={2} />
+                      ) : (
+                        <ChevronDown size={14} strokeWidth={2} />
+                      )}
                     </span>
                   </div>
 
                   {isSelected && (
                     <div className="mt-3 pt-3 border-t border-border/60">
-                      <div className="flex flex-wrap gap-1 mb-3">
+                      <div className="flex flex-wrap gap-1">
                         {t.fields.map(f => (
                           <span
                             key={f.id}
@@ -542,15 +493,6 @@ export default function SettingsPage() {
                           </span>
                         ))}
                       </div>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="text-xs w-full"
-                        onClick={() => handleDuplicateTemplate(t)}
-                      >
-                        <Copy size={13} />
-                        Duplicate as custom template
-                      </Button>
                     </div>
                   )}
                 </div>

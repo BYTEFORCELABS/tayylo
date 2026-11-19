@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ================================================================
-   TAYYLO DESIGN SYSTEM — CSS Custom Properties
+   TAYYLO DESIGN SYSTEM - CSS Custom Properties
    ================================================================ */
 
 @theme {
@@ -131,6 +131,14 @@ body {
   border-radius: var(--radius-sm);
 }
 
+/* Text inputs define their own focus treatment (ring/border color) -
+   skip the global outline above so focus isn't shown twice. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
 /* Links reset */
 a {
   color: inherit;
@@ -161,65 +169,6 @@ textarea {
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: var(--radius-full);
-}
-
-/* ================================================================
-   DARK MODE
-   ================================================================ */
-
-[data-theme="dark"],
-.dark {
-  --color-cream: #15170F;
-  --color-card-bg: #1D2117;
-  --color-white-warm: #FFFDF8;
-  --color-beige-light: #242A1C;
-  --color-beige: #353C28;
-  --color-text-primary: #F4F1EA;
-  --color-text-secondary: #BDC2B2;
-  --color-text-tertiary: #8F9583;
-  --color-border: #2E3423;
-  --color-border-strong: #475037;
-  --color-olive-deep: #10130B;
-  --color-olive: #73844D;
-  --color-olive-light: #8E9F63;
-  color-scheme: dark;
-}
-
-[data-theme="dark"] body,
-.dark body {
-  color: var(--color-text-primary);
-  background-color: var(--color-cream);
-}
-
-[data-theme="dark"] .bg-white-warm,
-.dark .bg-white-warm {
-  background-color: var(--color-card-bg, #1D2117);
-}
-
-@media (prefers-color-scheme: dark) {
-  [data-theme="system"] {
-    --color-cream: #15170F;
-    --color-card-bg: #1D2117;
-    --color-white-warm: #FFFDF8;
-    --color-beige-light: #242A1C;
-    --color-beige: #353C28;
-    --color-text-primary: #F4F1EA;
-    --color-text-secondary: #BDC2B2;
-    --color-text-tertiary: #8F9583;
-    --color-border: #2E3423;
-    --color-border-strong: #475037;
-    --color-olive-deep: #10130B;
-    --color-olive: #73844D;
-    --color-olive-light: #8E9F63;
-    color-scheme: dark;
-  }
-  [data-theme="system"] body {
-    color: var(--color-text-primary);
-    background-color: var(--color-cream);
-  }
-  [data-theme="system"] .bg-white-warm {
-    background-color: var(--color-card-bg, #1D2117);
-  }
 }
 
 /* ================================================================

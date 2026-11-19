@@ -1,5 +1,5 @@
 // ============================================================
-// Tayylo — Core TypeScript Types
+// Tayylo - Core TypeScript Types
 // ============================================================
 
 export type UnitSystem = "metric" | "imperial";
@@ -164,15 +164,4 @@ export interface Note {
   content: string;
   createdAt: string;
   author?: string;
-}
-
-export interface ScheduleItem {
-  id: string;
-  time: string; // e.g. "10:00"
-  type: "fitting" | "measure" | "pickup";
-  title: string;
-  clientName: string;
-  clientId: string;
-  garment: string;
-  completed?: boolean;
 }
