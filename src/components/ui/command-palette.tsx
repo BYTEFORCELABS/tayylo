@@ -13,9 +13,9 @@ import {
   CalendarDays,
   UserPlus,
   ClipboardList,
-  Shirt,
 } from "lucide-react";
 import { Avatar } from "./avatar";
+import { GarmentIcon } from "@/components/brand/garment-icon";
 import { StatusTag } from "./tag";
 import { useCustomers, useOrders } from "@/lib/queries";
 import { displayStatus, garmentOf, isActive } from "@/lib/orders";
@@ -125,7 +125,7 @@ function PaletteBody({ onOpenChange }: { onOpenChange: (open: boolean) => void }
                           // eslint-disable-next-line @next/next/no-img-element -- fabric thumbnail (data URL / local)
                           <img src={o.items[0].imageUrl} alt="" className="size-8 rounded-[var(--radius-xs)] object-cover" />
                         ) : (
-                          <Shirt size={18} strokeWidth={1.75} />
+                          <GarmentIcon garment={garmentOf(o)} size={24} label="" className="text-ink" />
                         )
                       }
                       meta={<StatusTag status={displayStatus(o)} appearance="dot" />}

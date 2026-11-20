@@ -9,9 +9,9 @@ import { toast } from "sonner";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { BackButton } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/choice";
 import { Input, Select } from "@/components/ui/input";
 import { BrandLoader } from "@/components/brand/brand-loader";
+import { GarmentIcon } from "@/components/brand/garment-icon";
 import { businessRepo } from "@/lib/data/store";
 import { setCachedBusiness } from "@/lib/use-business";
 import { CURRENCIES, currencySymbol, formatMoney } from "@/lib/format";
@@ -214,18 +214,31 @@ export default function OnboardingPage() {
               <>
                 <h1 className="text-title text-ink">What do you make?</h1>
                 <p className="mt-2 text-body text-text-secondary">Pick all that apply. This tailors your workspace — you can still make anything.</p>
-                <div className="mt-8 flex flex-wrap gap-2" role="group" aria-label="Garments">
+                <div className="mt-8 grid grid-cols-3 gap-2" role="group" aria-label="Garments">
                   {GARMENTS.map(g => {
                     const selected = garments.includes(g);
                     return (
-                      <Chip
+                      <button
                         key={g}
-                        selected={selected}
+                        type="button"
+                        aria-pressed={selected}
                         onClick={() => setGarments(prev => (selected ? prev.filter(x => x !== g) : [...prev, g]))}
-                        leading={selected ? <Check size={14} strokeWidth={2.5} /> : undefined}
+                        className={cn(
+                          "relative flex flex-col items-center gap-2 rounded-[var(--radius-card)] border px-2 pt-4 pb-3",
+                          "transition-[background-color,border-color,transform] duration-[var(--duration-fast)] active:scale-[0.97]",
+                          selected
+                            ? "border-ink bg-surface-raised text-ink shadow-[0_0_0_1px_var(--color-ink)]"
+                            : "border-border/80 bg-surface text-text-secondary hover:border-border-strong hover:text-ink"
+                        )}
                       >
-                        {g}
-                      </Chip>
+                        <GarmentIcon garment={g} size={36} label="" />
+                        <span className="text-caption font-medium">{g}</span>
+                        {selected && (
+                          <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-ink text-text-inverse animate-scale-in">
+                            <Check size={12} strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
                     );
                   })}
                 </div>

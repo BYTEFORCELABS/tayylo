@@ -1,6 +1,6 @@
 "use client";
 
-import { Shirt } from "lucide-react";
+import { GarmentIcon } from "@/components/brand/garment-icon";
 import { ListItem } from "@/components/ui/list";
 import { StatusTag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ export function GarmentThumb({ order, size = "md" }: { order: Order; size?: "md"
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-surface-sunken text-text-tertiary",
+        "flex shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-sm)] bg-surface-sunken text-ink/80",
         size === "md" ? "size-11" : "size-14"
       )}
     >
@@ -23,7 +23,7 @@ export function GarmentThumb({ order, size = "md" }: { order: Order; size?: "md"
         // eslint-disable-next-line @next/next/no-img-element -- user uploads
         <img src={img} alt="" className="size-full object-cover" />
       ) : (
-        <Shirt size={size === "md" ? 20 : 24} strokeWidth={1.5} aria-hidden />
+        <GarmentIcon garment={order.items[0]?.garmentType} size={size === "md" ? 28 : 34} label="" />
       )}
     </span>
   );

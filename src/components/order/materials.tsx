@@ -6,7 +6,8 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Camera, ImagePlus, Plus, Star, Trash2, ChevronLeft, ChevronRight, X, Shirt, Check } from "lucide-react";
+import { Camera, ImagePlus, Plus, Star, Trash2, ChevronLeft, ChevronRight, X, Check } from "lucide-react";
+import { GarmentIcon } from "@/components/brand/garment-icon";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Avatar } from "@/components/ui/avatar";
@@ -125,8 +126,8 @@ export function MaterialHero({ order, clientPhoto, subtitle, subtitleTone = "def
     return (
       <div className="overflow-hidden rounded-[var(--radius-panel)] border border-dashed border-border-strong bg-surface">
         <div className="flex flex-col items-center px-6 pt-8 pb-6 text-center">
-          <div className="flex size-14 items-center justify-center rounded-full bg-surface-sunken text-text-secondary">
-            <Shirt size={26} strokeWidth={1.5} />
+          <div className="flex size-20 items-center justify-center rounded-full bg-surface-sunken text-ink">
+            <GarmentIcon garment={garment} size={44} label="" />
           </div>
           <h2 className="mt-4 text-title text-ink">{garment}</h2>
           <p className="mt-1 flex items-center gap-2 text-label text-text-tertiary">

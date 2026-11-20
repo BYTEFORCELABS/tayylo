@@ -16,6 +16,7 @@ import { StatusTag, Tag } from "@/components/ui/tag";
 import { AnimatePresence, motion } from "motion/react";
 import { AddMaterialSheet, MaterialHero, MaterialStrip, MaterialViewer, useOrderMaterials } from "@/components/order/materials";
 import { ProductionTracker } from "@/components/order/production-tracker";
+import { GarmentIcon } from "@/components/brand/garment-icon";
 import { RecordPaymentDialog } from "@/components/payment-dialog";
 import { RecordFittingDialog } from "@/components/order/fitting-dialog";
 import { orderRepo } from "@/lib/data/store";
@@ -259,8 +260,8 @@ export default function OrderDetailPage() {
               <ListItem
                 key={item.id}
                 leading={
-                  <IconTile>
-                    <Scissors />
+                  <IconTile className="text-ink">
+                    <GarmentIcon garment={item.garmentType} size={26} label="" />
                   </IconTile>
                 }
                 title={item.garmentType}

@@ -1,0 +1,459 @@
+{
+  "name": "tayylo-garment-icons",
+  "version": "1.0.0",
+  "viewBox": "0 0 64 64",
+  "count": 74,
+  "icons": [
+    {
+      "id": "agbada",
+      "name": "Agbada",
+      "category": "traditional",
+      "path": "traditional/agbada.svg"
+    },
+    {
+      "id": "senator-wear",
+      "name": "Senator Wear",
+      "category": "traditional",
+      "path": "traditional/senator-wear.svg"
+    },
+    {
+      "id": "kaftan",
+      "name": "Kaftan",
+      "category": "traditional",
+      "path": "traditional/kaftan.svg"
+    },
+    {
+      "id": "native-wear",
+      "name": "Native Wear",
+      "category": "traditional",
+      "path": "traditional/native-wear.svg"
+    },
+    {
+      "id": "iro-and-buba",
+      "name": "Iro and Buba",
+      "category": "traditional",
+      "path": "traditional/iro-and-buba.svg"
+    },
+    {
+      "id": "ankara-dress",
+      "name": "Ankara Dress",
+      "category": "traditional",
+      "path": "traditional/ankara-dress.svg"
+    },
+    {
+      "id": "ankara-two-piece",
+      "name": "Ankara Two-Piece",
+      "category": "traditional",
+      "path": "traditional/ankara-two-piece.svg"
+    },
+    {
+      "id": "isi-agu",
+      "name": "Isi Agu",
+      "category": "traditional",
+      "path": "traditional/isi-agu.svg"
+    },
+    {
+      "id": "dashiki",
+      "name": "Dashiki",
+      "category": "traditional",
+      "path": "traditional/dashiki.svg"
+    },
+    {
+      "id": "buba",
+      "name": "Buba",
+      "category": "traditional",
+      "path": "traditional/buba.svg"
+    },
+    {
+      "id": "sokoto",
+      "name": "Sokoto",
+      "category": "traditional",
+      "path": "traditional/sokoto.svg"
+    },
+    {
+      "id": "wrapper",
+      "name": "Wrapper",
+      "category": "traditional",
+      "path": "traditional/wrapper.svg"
+    },
+    {
+      "id": "kaftan-set",
+      "name": "Kaftan Set",
+      "category": "traditional",
+      "path": "traditional/kaftan-set.svg"
+    },
+    {
+      "id": "aso-oke-outfit",
+      "name": "Aso Oke Outfit",
+      "category": "traditional",
+      "path": "traditional/aso-oke-outfit.svg"
+    },
+    {
+      "id": "george-wrapper-outfit",
+      "name": "George Wrapper Outfit",
+      "category": "traditional",
+      "path": "traditional/george-wrapper-outfit.svg"
+    },
+    {
+      "id": "two-piece-suit",
+      "name": "Two-Piece Suit",
+      "category": "formal",
+      "path": "formal/two-piece-suit.svg"
+    },
+    {
+      "id": "three-piece-suit",
+      "name": "Three-Piece Suit",
+      "category": "formal",
+      "path": "formal/three-piece-suit.svg"
+    },
+    {
+      "id": "blazer",
+      "name": "Blazer",
+      "category": "formal",
+      "path": "formal/blazer.svg"
+    },
+    {
+      "id": "suit-jacket",
+      "name": "Suit Jacket",
+      "category": "formal",
+      "path": "formal/suit-jacket.svg"
+    },
+    {
+      "id": "corporate-shirt",
+      "name": "Corporate Shirt",
+      "category": "formal",
+      "path": "formal/corporate-shirt.svg"
+    },
+    {
+      "id": "short-sleeved-shirt",
+      "name": "Short-Sleeved Shirt",
+      "category": "formal",
+      "path": "formal/short-sleeved-shirt.svg"
+    },
+    {
+      "id": "trousers",
+      "name": "Trousers",
+      "category": "formal",
+      "path": "formal/trousers.svg"
+    },
+    {
+      "id": "waistcoat",
+      "name": "Waistcoat",
+      "category": "formal",
+      "path": "formal/waistcoat.svg"
+    },
+    {
+      "id": "corporate-dress",
+      "name": "Corporate Dress",
+      "category": "formal",
+      "path": "formal/corporate-dress.svg"
+    },
+    {
+      "id": "pencil-skirt",
+      "name": "Pencil Skirt",
+      "category": "formal",
+      "path": "formal/pencil-skirt.svg"
+    },
+    {
+      "id": "gown",
+      "name": "Gown",
+      "category": "womenswear",
+      "path": "womenswear/gown.svg"
+    },
+    {
+      "id": "evening-dress",
+      "name": "Evening Dress",
+      "category": "womenswear",
+      "path": "womenswear/evening-dress.svg"
+    },
+    {
+      "id": "wedding-dress",
+      "name": "Wedding Dress",
+      "category": "womenswear",
+      "path": "womenswear/wedding-dress.svg"
+    },
+    {
+      "id": "ball-gown",
+      "name": "Ball Gown",
+      "category": "womenswear",
+      "path": "womenswear/ball-gown.svg"
+    },
+    {
+      "id": "maxi-dress",
+      "name": "Maxi Dress",
+      "category": "womenswear",
+      "path": "womenswear/maxi-dress.svg"
+    },
+    {
+      "id": "midi-dress",
+      "name": "Midi Dress",
+      "category": "womenswear",
+      "path": "womenswear/midi-dress.svg"
+    },
+    {
+      "id": "mini-dress",
+      "name": "Mini Dress",
+      "category": "womenswear",
+      "path": "womenswear/mini-dress.svg"
+    },
+    {
+      "id": "blouse",
+      "name": "Blouse",
+      "category": "womenswear",
+      "path": "womenswear/blouse.svg"
+    },
+    {
+      "id": "crop-top",
+      "name": "Crop Top",
+      "category": "womenswear",
+      "path": "womenswear/crop-top.svg"
+    },
+    {
+      "id": "peplum-top",
+      "name": "Peplum Top",
+      "category": "womenswear",
+      "path": "womenswear/peplum-top.svg"
+    },
+    {
+      "id": "skirt",
+      "name": "Skirt",
+      "category": "womenswear",
+      "path": "womenswear/skirt.svg"
+    },
+    {
+      "id": "a-line-skirt",
+      "name": "A-Line Skirt",
+      "category": "womenswear",
+      "path": "womenswear/a-line-skirt.svg"
+    },
+    {
+      "id": "jumpsuit",
+      "name": "Jumpsuit",
+      "category": "womenswear",
+      "path": "womenswear/jumpsuit.svg"
+    },
+    {
+      "id": "playsuit",
+      "name": "Playsuit",
+      "category": "womenswear",
+      "path": "womenswear/playsuit.svg"
+    },
+    {
+      "id": "two-piece-set",
+      "name": "Two-Piece Set",
+      "category": "womenswear",
+      "path": "womenswear/two-piece-set.svg"
+    },
+    {
+      "id": "corset",
+      "name": "Corset",
+      "category": "womenswear",
+      "path": "womenswear/corset.svg"
+    },
+    {
+      "id": "kaftan-dress",
+      "name": "Kaftan Dress",
+      "category": "womenswear",
+      "path": "womenswear/kaftan-dress.svg"
+    },
+    {
+      "id": "abaya",
+      "name": "Abaya",
+      "category": "womenswear",
+      "path": "womenswear/abaya.svg"
+    },
+    {
+      "id": "kimono",
+      "name": "Kimono",
+      "category": "womenswear",
+      "path": "womenswear/kimono.svg"
+    },
+    {
+      "id": "t-shirt",
+      "name": "T-Shirt",
+      "category": "menswear",
+      "path": "menswear/t-shirt.svg"
+    },
+    {
+      "id": "polo-shirt",
+      "name": "Polo Shirt",
+      "category": "menswear",
+      "path": "menswear/polo-shirt.svg"
+    },
+    {
+      "id": "hoodie",
+      "name": "Hoodie",
+      "category": "menswear",
+      "path": "menswear/hoodie.svg"
+    },
+    {
+      "id": "sweatshirt",
+      "name": "Sweatshirt",
+      "category": "menswear",
+      "path": "menswear/sweatshirt.svg"
+    },
+    {
+      "id": "jacket",
+      "name": "Jacket",
+      "category": "menswear",
+      "path": "menswear/jacket.svg"
+    },
+    {
+      "id": "denim-jacket",
+      "name": "Denim Jacket",
+      "category": "menswear",
+      "path": "menswear/denim-jacket.svg"
+    },
+    {
+      "id": "shorts",
+      "name": "Shorts",
+      "category": "menswear",
+      "path": "menswear/shorts.svg"
+    },
+    {
+      "id": "jeans",
+      "name": "Jeans",
+      "category": "menswear",
+      "path": "menswear/jeans.svg"
+    },
+    {
+      "id": "chinos",
+      "name": "Chinos",
+      "category": "menswear",
+      "path": "menswear/chinos.svg"
+    },
+    {
+      "id": "joggers",
+      "name": "Joggers",
+      "category": "menswear",
+      "path": "menswear/joggers.svg"
+    },
+    {
+      "id": "tracksuit",
+      "name": "Tracksuit",
+      "category": "menswear",
+      "path": "menswear/tracksuit.svg"
+    },
+    {
+      "id": "overcoat",
+      "name": "Overcoat",
+      "category": "outerwear",
+      "path": "outerwear/overcoat.svg"
+    },
+    {
+      "id": "trench-coat",
+      "name": "Trench Coat",
+      "category": "outerwear",
+      "path": "outerwear/trench-coat.svg"
+    },
+    {
+      "id": "leather-jacket",
+      "name": "Leather Jacket",
+      "category": "outerwear",
+      "path": "outerwear/leather-jacket.svg"
+    },
+    {
+      "id": "cardigan",
+      "name": "Cardigan",
+      "category": "outerwear",
+      "path": "outerwear/cardigan.svg"
+    },
+    {
+      "id": "vest",
+      "name": "Vest",
+      "category": "outerwear",
+      "path": "outerwear/vest.svg"
+    },
+    {
+      "id": "raincoat",
+      "name": "Raincoat",
+      "category": "outerwear",
+      "path": "outerwear/raincoat.svg"
+    },
+    {
+      "id": "uniform",
+      "name": "Uniform",
+      "category": "outerwear",
+      "path": "outerwear/uniform.svg"
+    },
+    {
+      "id": "scrubs",
+      "name": "Scrubs",
+      "category": "outerwear",
+      "path": "outerwear/scrubs.svg"
+    },
+    {
+      "id": "coveralls",
+      "name": "Coveralls",
+      "category": "outerwear",
+      "path": "outerwear/coveralls.svg"
+    },
+    {
+      "id": "traditional-robe",
+      "name": "Traditional Robe",
+      "category": "outerwear",
+      "path": "outerwear/traditional-robe.svg"
+    },
+    {
+      "id": "cap",
+      "name": "Cap",
+      "category": "accessories",
+      "path": "accessories/cap.svg"
+    },
+    {
+      "id": "hat",
+      "name": "Hat",
+      "category": "accessories",
+      "path": "accessories/hat.svg"
+    },
+    {
+      "id": "tie",
+      "name": "Tie",
+      "category": "accessories",
+      "path": "accessories/tie.svg"
+    },
+    {
+      "id": "bow-tie",
+      "name": "Bow Tie",
+      "category": "accessories",
+      "path": "accessories/bow-tie.svg"
+    },
+    {
+      "id": "scarf",
+      "name": "Scarf",
+      "category": "accessories",
+      "path": "accessories/scarf.svg"
+    },
+    {
+      "id": "turban",
+      "name": "Turban",
+      "category": "accessories",
+      "path": "accessories/turban.svg"
+    },
+    {
+      "id": "gele",
+      "name": "Headwrap / Gele",
+      "category": "accessories",
+      "path": "accessories/gele.svg"
+    },
+    {
+      "id": "belt",
+      "name": "Belt",
+      "category": "accessories",
+      "path": "accessories/belt.svg"
+    },
+    {
+      "id": "socks",
+      "name": "Socks",
+      "category": "accessories",
+      "path": "accessories/socks.svg"
+    },
+    {
+      "id": "tailored-waistcoat",
+      "name": "Tailored Waistcoat",
+      "category": "accessories",
+      "path": "formal/waistcoat.svg",
+      "aliasOf": "waistcoat"
+    }
+  ]
+}

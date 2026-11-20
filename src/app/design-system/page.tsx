@@ -4,6 +4,8 @@ import React from "react";
 import { Ruler, Plus, Users, Search, Scissors, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Logo } from "@/components/brand/logo";
+import { GarmentIcon } from "@/components/brand/garment-icon";
+import { GARMENT_ICONS } from "@/lib/garment-icons";
 import { Avatar } from "@/components/ui/avatar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
@@ -94,6 +96,24 @@ export default function DesignSystemPage() {
           <p className="mt-2 px-1 text-caption text-text-tertiary">
             Use <code>&lt;Logo /&gt;</code> only. Olive on light surfaces, cream on dark. Never stretched.
           </p>
+        </Section>
+
+        <Section title="Garment icons" description="74 icons on one 64px grid. Colour follows the text colour; use <GarmentIcon garment=… />.">
+          {(["traditional", "formal", "womenswear", "menswear", "outerwear", "accessories"] as const).map(cat => (
+            <div key={cat} className="mb-5">
+              <Overline className="mb-2 capitalize">{cat}</Overline>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+                {Object.values(GARMENT_ICONS)
+                  .filter(i => i.category === cat)
+                  .map(i => (
+                    <div key={i.id} className="flex flex-col items-center gap-1.5 rounded-[var(--radius-card)] bg-surface p-3 text-ink">
+                      <GarmentIcon garment={i.id} size={32} />
+                      <span className="text-center text-[11px] leading-tight text-text-tertiary">{i.name}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
         </Section>
 
         <Section title="Colour">

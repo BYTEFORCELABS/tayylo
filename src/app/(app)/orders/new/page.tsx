@@ -19,12 +19,9 @@ import { PAYMENT_METHODS } from "@/lib/orders";
 import { AddMaterialSheet } from "@/components/order/materials";
 import { makeThumbnail } from "@/lib/images";
 import { parseCaption } from "@/lib/fabrics";
+import { GarmentPicker } from "@/components/garment-picker";
+import { GarmentIcon } from "@/components/brand/garment-icon";
 import type { Customer } from "@/types";
-
-const GARMENT_TYPES = [
-  "Shirt", "Trousers", "Suit", "Jacket", "Dress", "Skirt",
-  "Agbada", "Kaftan", "Boubou", "Kurta", "Saree blouse", "Abaya",
-];
 
 const DUE_PRESETS = [
   { label: "1 week", days: 7 },
@@ -54,7 +51,7 @@ function NewOrderPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedClientId = searchParams.get("clientId");
-  const { currency } = useBusiness();
+  const { currency, business } = useBusiness();
   const symbol = currencySymbol(currency);
 
   const [step, setStep] = React.useState<"client" | "details">(preselectedClientId ? "details" : "client");
@@ -193,28 +190,20 @@ function NewOrderPageInner() {
         )}
 
         <Overline className="mb-3 mt-8">Garment</Overline>
-        <fieldset aria-describedby={errors.garment ? "garment-error" : undefined}>
-          <legend className="sr-only">Garment type</legend>
-          <div className="flex flex-wrap gap-2">
-            {[...GARMENT_TYPES, "Other"].map(g => (
-              <Chip
-                key={g}
-                selected={garment === g}
-                onClick={() => {
-                  setGarment(g);
-                  setErrors(e => ({ ...e, garment: undefined }));
-                }}
-              >
-                {g}
-              </Chip>
-            ))}
-          </div>
-          {errors.garment && (
-            <p id="garment-error" role="alert" className="mt-2 text-caption font-medium text-danger">
-              {errors.garment}
-            </p>
-          )}
-        </fieldset>
+        <GarmentPicker
+          value={garment}
+          customActive={garment === "Other"}
+          studioGarments={business?.garmentTypes}
+          onChange={g => {
+            setGarment(g);
+            setErrors(e => ({ ...e, garment: undefined }));
+          }}
+          onCustom={() => {
+            setGarment("Other");
+            setErrors(e => ({ ...e, garment: undefined }));
+          }}
+          error={errors.garment}
+        />
         {garment === "Other" && (
           <Input
             containerClassName="mt-4"
@@ -351,7 +340,10 @@ function NewOrderPageInner() {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-canvas/90 backdrop-blur-xl lg:pl-64">
         <div className="mx-auto flex max-w-xl items-center gap-4 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-caption text-text-tertiary">{garmentName || "No garment chosen"}</p>
+            <p className="flex items-center gap-1.5 truncate text-caption text-text-tertiary">
+              {garmentName && <GarmentIcon garment={garmentName} size={16} label="" />}
+              {garmentName || "No garment chosen"}
+            </p>
             <p className="tabular truncate text-[15px] font-semibold text-ink">{formatMoney(priceMinor, currency)}</p>
           </div>
           <Button size="lg" onClick={create} loading={saving} disabled={!client}>

@@ -28,7 +28,7 @@ import { customerRepo, measurementRepo } from "@/lib/data/store";
 import { getQueryData } from "@/lib/query";
 import { qk, useCustomers, useTemplates } from "@/lib/queries";
 import { useBusiness } from "@/lib/use-business";
-import { getGarmentImage } from "@/lib/mock/seed-data";
+import { GarmentIcon } from "@/components/brand/garment-icon";
 import { formatDate, formatDelta, formatMeasurement, measurementDelta, parseMeasurement, unitLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Customer, MeasurementTemplate, MeasurementSet } from "@/types";
@@ -298,8 +298,9 @@ function MeasurePageInner() {
                     key={t.id}
                     onClick={() => selectTemplate(t)}
                     leading={
-                      // eslint-disable-next-line @next/next/no-img-element -- static garment reference image
-                      <img src={getGarmentImage(t.name)} alt="" className="size-12 rounded-[var(--radius-sm)] object-cover" />
+                      <span className="flex size-12 items-center justify-center rounded-[var(--radius-sm)] bg-surface-sunken text-ink">
+                        <GarmentIcon garment={t.name} size={32} label="" />
+                      </span>
                     }
                     title={t.name}
                     subtitle={`${t.fields.length} measurements · ${groups}`}
