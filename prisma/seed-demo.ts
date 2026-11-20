@@ -69,6 +69,11 @@ async function main() {
   // Re-running replaces the demo tailor's posts.
   type Demo = [img: string, w: number, h: number, studio: string, country: string, category: string, caption: string, tags: string[]];
   const demo: Demo[] = [
+    ["/explore/indian-embroidered-lehenga.jpg", 821, 1100, "Jaipur Threads", "India", "Wedding & Bridal", "Embroidered maroon and gold bridal lehenga", ["lehenga", "bridal", "embroidery"]],
+    ["/explore/tweed-three-piece-suit.jpg", 821, 1100, "Savile & Co.", "United Kingdom", "Formal", "Herringbone tweed three-piece suit", ["tweed", "suit", "bespoke"]],
+    ["/explore/japanese-indigo-kimono.jpg", 821, 1100, "Kyoto Indigo", "Japan", "Outerwear", "Shibori indigo kimono jacket with sashiko stitching", ["indigo", "kimono", "shibori"]],
+    ["/explore/silk-scarf-collection.jpg", 1100, 821, "Mumbai Silk Works", "India", "Accessories", "Silk scarves and ties in jewel-toned prints", ["silk", "scarf", "accessories"]],
+    ["/explore/denim-tailored-jacket.jpg", 1100, 1100, "Brooklyn Denim Lab", "United States", "Casual", "Tailored raw denim jacket with contrast topstitching", ["denim", "jacket"]],
     ["/garments/agbada.jpg", 896, 1200, "Adire House Tailoring", "Nigeria", "Traditional", "Three-piece agbada with hand embroidery", ["agbada", "embroidery"]],
     ["/pictures/bridegown.jpeg", 480, 640, "Lagos Bridal Atelier", "Nigeria", "Wedding & Bridal", "Beaded bridal gown with a long train", ["bridal", "gown"]],
     ["/garments/dress.jpg", 896, 1200, "Maison Accra", "Ghana", "Womenswear", "Structured day dress, clean lines", ["dress"]],
