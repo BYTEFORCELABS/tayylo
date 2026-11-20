@@ -1,242 +1,293 @@
 "use client";
 
-import React from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
+import React, { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Phone, Mail } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, MailCheck, AlertCircle } from "lucide-react";
+import { signIn } from "next-auth/react";
+import { AuthLayout } from "@/components/auth/auth-layout";
+import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/choice";
+import { Input } from "@/components/ui/input";
+import { useBack } from "@/components/ui/page";
+import { businessRepo } from "@/lib/data/store";
+import { clearQueries } from "@/lib/query";
+import { setCachedBusiness } from "@/lib/use-business";
 
-type AuthStep = "method" | "phone" | "otp";
+type Mode = "signin" | "signup" | "reset";
 
-export default function AuthPage() {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+      <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+      <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+      <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
+    </svg>
+  );
+}
+
+function AppleIcon() {
+  return (
+    <svg width="16" height="18" viewBox="0 0 384 512" fill="currentColor" aria-hidden>
+      <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 37 59 127.6 107.2 126.1 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-83.5 102.6-120.6-65.2-30.7-61.7-90-61.7-91.4zM255.3 100.6c26.7-31.8 24.3-60.8 23.5-71.2-23.6 1.4-51 16.5-66.5 35-17.1 19.8-27.3 44.4-25.1 70.5 24.1 1.9 46-11.2 68.1-34.3z" />
+    </svg>
+  );
+}
+
+const copy: Record<Mode, { title: string; subtitle: string }> = {
+  signin: { title: "Welcome back", subtitle: "Sign in to your workspace." },
+  signup: { title: "Create your account", subtitle: "Free to start. Set up your studio in under a minute." },
+  reset: { title: "Reset your password", subtitle: "Enter your account email and we'll send you a link to set a new one." },
+};
+
+function AuthPageInner() {
   const router = useRouter();
-  const [step, setStep] = React.useState<AuthStep>("method");
-  const [phone, setPhone] = React.useState("");
-  const [otp, setOtp] = React.useState(["", "", "", "", "", ""]);
+  const goBack = useBack();
+  const searchParams = useSearchParams();
+  const [mode, setMode] = React.useState<Mode>(searchParams.get("mode") === "signup" ? "signup" : "signin");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const [resent, setResent] = React.useState(false);
-  const otpRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+  const [error, setError] = React.useState<string | null>(null);
+  const [touched, setTouched] = React.useState({ email: false, password: false });
+  const [resetSent, setResetSent] = React.useState(false);
 
-  const handlePhoneSubmit = () => {
-    if (phone.length >= 6) {
-      setStep("otp");
-    }
+  const emailValid = EMAIL_RE.test(email.trim());
+  const passwordValid = password.length >= 6;
+  const emailError = touched.email && !emailValid ? "Enter a valid email address" : undefined;
+  const passwordError =
+    touched.password && !passwordValid ? "Use at least 6 characters" : undefined;
+
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    setError(null);
+    setResetSent(false);
+    setTouched({ email: false, password: false });
   };
 
-  const handleOtpChange = (index: number, val: string) => {
-    if (!/^\d*$/.test(val)) return;
-    const newOtp = [...otp];
-    newOtp[index] = val.slice(-1);
-    setOtp(newOtp);
-    if (val && index < 5) {
-      otpRefs.current[index + 1]?.focus();
-    }
-    // Auto-submit when all filled
-    if (newOtp.every(d => d) && index === 5) {
-      setLoading(true);
-      setTimeout(() => router.push("/onboarding"), 1200);
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleSocialLogin = () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTouched({ email: true, password: true });
+    if (!emailValid || !passwordValid || loading) return;
+    setError(null);
     setLoading(true);
-    setTimeout(() => router.push("/onboarding"), 1000);
+
+    try {
+      if (mode === "signup") {
+        const res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          setError(body.error || "Could not create your account");
+          setLoading(false);
+          return;
+        }
+      }
+
+      const result = await signIn("credentials", { email, password, redirect: false });
+      if (result?.error) {
+        setError("That email and password don't match an account.");
+        setLoading(false);
+        return;
+      }
+      clearQueries();
+      const business = await businessRepo.get();
+      setCachedBusiness(business);
+      router.push(business ? "/today" : "/onboarding");
+    } catch {
+      setError("Couldn't reach Tayylo. Check your connection and try again.");
+      setLoading(false);
+    }
   };
 
-  const handleResend = () => {
-    setResent(true);
-    setTimeout(() => setResent(false), 3000);
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTouched(t => ({ ...t, email: true }));
+    if (!emailValid) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || "Could not send the reset email");
+      } else {
+        setResetSent(true);
+      }
+    } catch {
+      setError("Couldn't reach Tayylo. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleOAuth = async (provider: "google" | "apple") => {
+    setError(null);
+    await signIn(provider, { callbackUrl: "/today" });
+  };
+
+  const emailField = (
+    <Input
+      label="Email"
+      type="email"
+      inputMode="email"
+      autoComplete="email"
+      placeholder="you@studio.com"
+      leadingIcon={<Mail />}
+      value={email}
+      onChange={e => setEmail(e.target.value)}
+      onBlur={() => setTouched(t => ({ ...t, email: true }))}
+      error={emailError}
+      autoFocus
+    />
+  );
 
   return (
-    <div className="min-h-[100dvh] bg-cream flex flex-col">
-      {/* Header */}
-      <div className="flex items-center px-4 pt-safe">
-        <button
-          onClick={() => {
-            if (step === "otp") setStep("phone");
-            else if (step === "phone") setStep("method");
-            else router.push("/welcome");
-          }}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-beige-light transition-colors text-text-primary"
-          aria-label="Go back"
+    <AuthLayout
+      quote="The modern tailor's notebook — every client, measurement and order in one place."
+      onBack={() => (mode === "reset" ? switchMode("signin") : goBack("/welcome"))}
+      backLabel={mode === "reset" ? "Back to sign in" : "Back"}
+    >
+      {mode !== "reset" && (
+        <SegmentedControl
+          ariaLabel="Account"
+          block
+          className="mb-8"
+          value={mode}
+          onChange={m => switchMode(m)}
+          options={[
+            { value: "signin", label: "Sign in" },
+            { value: "signup", label: "Create account" },
+          ]}
+        />
+      )}
+
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={mode + String(resetSent)}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
         >
-          <ArrowLeft size={20} strokeWidth={1.5} />
-        </button>
-      </div>
-
-      <div className="flex-1 flex flex-col justify-center items-center px-4 py-8 max-w-sm mx-auto w-full my-auto">
-        <div className="flex justify-center mb-6">
-          <Image src="/symbol_olive.png" alt="Tayylo" width={44} height={44} />
-        </div>
-
-        <AnimatePresence mode="wait">
-          {step === "method" && (
-            <motion.div
-              key="method"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-col items-center"
-            >
-              <h1 className="font-serif text-2xl text-text-primary text-center mb-2">
-                Sign in to Tayylo
-              </h1>
-              <p className="text-sm text-text-secondary text-center mb-8 max-w-xs">
-                Choose how you&apos;d like to sign in or create your account.
-              </p>
-
-              <div className="w-full max-w-sm space-y-3">
-                <button
-                  onClick={() => setStep("phone")}
-                  className="flex items-center gap-3 w-full h-12 px-4 rounded-[var(--radius-button)] bg-olive text-white-warm font-medium text-sm hover:bg-olive-deep transition-colors active:scale-[0.98]"
-                >
-                  <Phone size={18} strokeWidth={1.5} />
-                  Continue with phone
-                </button>
-
-                <button
-                  onClick={handleSocialLogin}
-                  className="flex items-center gap-3 w-full h-12 px-4 rounded-[var(--radius-button)] bg-white-warm border border-border text-text-primary font-medium text-sm hover:bg-beige-light transition-colors active:scale-[0.98]"
-                >
-                  <Mail size={18} strokeWidth={1.5} />
-                  Continue with email
-                </button>
-
-                <button
-                  onClick={handleSocialLogin}
-                  className="flex items-center gap-3 w-full h-12 px-4 rounded-[var(--radius-button)] bg-white-warm border border-border text-text-primary font-medium text-sm hover:bg-beige-light transition-colors active:scale-[0.98]"
-                >
-                  <svg width="18" height="18" viewBox="0 0 48 48">
-                    <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-                    <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-                    <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-                    <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
-                  </svg>
-                  Continue with Google
-                </button>
-
-                <button
-                  onClick={handleSocialLogin}
-                  className="flex items-center gap-3 w-full h-12 px-4 rounded-[var(--radius-button)] bg-text-primary text-white-warm font-medium text-sm hover:opacity-90 transition-colors active:scale-[0.98]"
-                >
-                  <svg width="16" height="18" viewBox="0 0 384 512" fill="currentColor">
-                    <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 37 59 127.6 107.2 126.1 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-83.5 102.6-120.6-65.2-30.7-61.7-90-61.7-91.4zM255.3 100.6c26.7-31.8 24.3-60.8 23.5-71.2-23.6 1.4-51 16.5-66.5 35-17.1 19.8-27.3 44.4-25.1 70.5 24.1 1.9 46-11.2 68.1-34.3z"/>
-                  </svg>
-                  Continue with Apple
-                </button>
+          {mode === "reset" && resetSent ? (
+            <div>
+              <div className="mb-5 flex size-14 items-center justify-center rounded-full bg-olive-soft text-olive-deep">
+                <MailCheck size={26} strokeWidth={1.75} />
               </div>
-            </motion.div>
-          )}
-
-          {step === "phone" && (
-            <motion.div
-              key="phone"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-col items-center"
-            >
-              <h1 className="font-serif text-2xl text-text-primary text-center mb-2">
-                Enter your phone number
-              </h1>
-              <p className="text-sm text-text-secondary text-center mb-8 max-w-xs">
-                We&apos;ll send you a verification code.
+              <h1 className="text-title text-ink">Check your inbox</h1>
+              <p className="mt-2 text-body text-text-secondary">
+                If an account exists for <span className="font-semibold text-ink">{email}</span>, a reset link is on its way. It
+                expires after a short while.
               </p>
+              <Button size="lg" block className="mt-8" onClick={() => switchMode("signin")}>
+                Back to sign in
+              </Button>
+              <Button variant="ghost" block className="mt-2" onClick={() => setResetSent(false)}>
+                Use a different email
+              </Button>
+            </div>
+          ) : (
+            <>
+              <h1 className="text-title text-ink">{copy[mode].title}</h1>
+              <p className="mt-2 text-body text-text-secondary">{copy[mode].subtitle}</p>
 
-              <div className="w-full max-w-sm space-y-4">
-                <div className="relative">
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    placeholder="+234 800 000 0000"
-                    className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-base text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-olive focus:ring-offset-2 focus:ring-offset-cream"
-                    autoFocus
+              <form onSubmit={mode === "reset" ? handleReset : handleSubmit} noValidate className="mt-8 space-y-5">
+                {emailField}
+
+                {mode !== "reset" && (
+                  <Input
+                    label="Password"
+                    hint={
+                      mode === "signin" ? (
+                        <button type="button" onClick={() => switchMode("reset")} className="font-semibold text-olive hover:underline">
+                          Forgot password?
+                        </button>
+                      ) : undefined
+                    }
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    placeholder={mode === "signup" ? "At least 6 characters" : "Your password"}
+                    leadingIcon={<Lock />}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onBlur={() => setTouched(t => ({ ...t, password: true }))}
+                    error={passwordError}
+                    helperText={mode === "signup" && !passwordError ? "At least 6 characters" : undefined}
+                    trailing={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(v => !v)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        className="flex size-9 items-center justify-center rounded-full text-text-tertiary hover:bg-surface-sunken hover:text-ink"
+                      >
+                        {showPassword ? <EyeOff size={18} strokeWidth={1.75} /> : <Eye size={18} strokeWidth={1.75} />}
+                      </button>
+                    }
                   />
-                </div>
-
-                <button
-                  onClick={handlePhoneSubmit}
-                  disabled={phone.length < 6}
-                  className="w-full h-12 rounded-[var(--radius-button)] bg-olive text-white-warm font-medium text-sm hover:bg-olive-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-                >
-                  Send code
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {step === "otp" && (
-            <motion.div
-              key="otp"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-col items-center"
-            >
-              <h1 className="font-serif text-2xl text-text-primary text-center mb-2">
-                Enter verification code
-              </h1>
-              <p className="text-sm text-text-secondary text-center mb-8 max-w-xs">
-                We sent a 6-digit code to {phone}
-              </p>
-
-              <div className="flex gap-2 mb-6">
-                {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    ref={el => { otpRefs.current[i] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={e => handleOtpChange(i, e.target.value)}
-                    onKeyDown={e => handleOtpKeyDown(i, e)}
-                    className="w-12 h-14 rounded-[var(--radius-input)] border border-border bg-white-warm text-center text-xl font-semibold text-text-primary focus:outline-none focus:ring-2 focus:ring-olive focus:ring-offset-2 focus:ring-offset-cream"
-                    autoFocus={i === 0}
-                  />
-                ))}
-              </div>
-
-              {loading && (
-                <div className="flex items-center gap-2 text-sm text-olive mb-4">
-                  <div className="w-4 h-4 border-2 border-olive border-t-transparent rounded-full animate-spin" />
-                  Verifying...
-                </div>
-              )}
-
-              <div className="flex flex-col items-center gap-2 text-sm">
-                {resent ? (
-                  <p className="text-success">Code resent</p>
-                ) : (
-                  <button
-                    onClick={handleResend}
-                    className="text-olive hover:underline"
-                  >
-                    Resend code
-                  </button>
                 )}
-                <button
-                  onClick={() => setStep("phone")}
-                  className="text-text-tertiary hover:text-text-secondary"
-                >
-                  Wrong number?
-                </button>
-              </div>
-            </motion.div>
+
+                {error && (
+                  <div role="alert" className="flex items-start gap-2.5 rounded-[var(--radius-input)] bg-danger-bg px-4 py-3 text-label text-danger animate-rise-in">
+                    <AlertCircle size={16} strokeWidth={2} className="mt-0.5 shrink-0" />
+                    {error}
+                  </div>
+                )}
+
+                <Button type="submit" size="lg" block loading={loading}>
+                  {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
+                </Button>
+              </form>
+
+              {mode === "reset" ? (
+                <p className="mt-6 text-center text-label text-text-tertiary">
+                  Remembered it?{" "}
+                  <button onClick={() => switchMode("signin")} className="font-semibold text-ink hover:underline">
+                    Back to sign in
+                  </button>
+                </p>
+              ) : (
+                <>
+                  <div className="my-6 flex items-center gap-3 text-caption text-text-tertiary">
+                    <span className="h-px flex-1 bg-border" />
+                    or continue with
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="secondary" size="lg" onClick={() => handleOAuth("google")}>
+                      <GoogleIcon />
+                      Google
+                    </Button>
+                    <Button variant="secondary" size="lg" onClick={() => handleOAuth("apple")}>
+                      <AppleIcon />
+                      Apple
+                    </Button>
+                  </div>
+                </>
+              )}
+            </>
           )}
-        </AnimatePresence>
-      </div>
-    </div>
+        </motion.div>
+      </AnimatePresence>
+    </AuthLayout>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<div className="min-h-[100dvh] bg-canvas" />}>
+      <AuthPageInner />
+    </Suspense>
   );
 }

@@ -2,170 +2,195 @@
 
 import React from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ArrowLeft, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar } from "@/components/ui/avatar";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
-import { customerRepo } from "@/lib/mock/store";
-import type { Customer } from "@/types";
+import { UserX } from "lucide-react";
 import { toast } from "sonner";
+import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input, Textarea } from "@/components/ui/input";
+import { Tag } from "@/components/ui/tag";
+import { PageBody, PageHeader, Overline } from "@/components/ui/page";
+import { EmptyState, ErrorState, LoadingRegion, Skeleton } from "@/components/ui/states";
+import { customerRepo } from "@/lib/data/store";
+import type { Customer } from "@/types";
 
 export default function EditClientPage() {
   const router = useRouter();
   const params = useParams();
   const clientId = params.id as string;
 
-  const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
+  const [status, setStatus] = React.useState<"loading" | "ready" | "error">("loading");
   const [client, setClient] = React.useState<Customer | null>(null);
   const [name, setName] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [notes, setNotes] = React.useState("");
-  const [tags, setTags] = React.useState("");
-  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [tags, setTags] = React.useState<string[]>([]);
+  const [tagDraft, setTagDraft] = React.useState("");
+  const [nameError, setNameError] = React.useState<string>();
+  const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
-    customerRepo.getById(clientId).then(c => {
-      if (c) {
-        setClient(c);
-        setName(c.fullName);
-        setPhone(c.phones[0] || "");
-        setEmail(c.email || "");
-        setNotes(c.notes || "");
-        setTags(c.tags.join(", "));
-      }
-      setLoading(false);
-    });
+  const load = React.useCallback(() => {
+    customerRepo
+      .getById(clientId)
+      .then(c => {
+        if (c) {
+          setClient(c);
+          setName(c.fullName);
+          setPhone(c.phones[0] || "");
+          setEmail(c.email || "");
+          setNotes(c.notes || "");
+          setTags(c.tags);
+        }
+        setStatus("ready");
+      })
+      .catch(() => setStatus("error"));
   }, [clientId]);
 
-  const handleSave = async () => {
-    if (!name.trim()) return;
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const addTag = () => {
+    const t = tagDraft.trim().replace(/,$/, "");
+    if (t && !tags.includes(t)) setTags([...tags, t]);
+    setTagDraft("");
+  };
+
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!name.trim()) {
+      setNameError("Enter the client's name");
+      return;
+    }
     setSaving(true);
-    await customerRepo.update(clientId, {
-      fullName: name.trim(),
-      phones: phone.trim() ? [phone.trim()] : [],
-      email: email.trim() || undefined,
-      notes: notes.trim() || undefined,
-      tags: tags.split(",").map(t => t.trim()).filter(Boolean),
-    });
-    toast("Client updated");
-    setSaving(false);
-    router.push(`/clients/${clientId}`);
+    try {
+      const pending = tagDraft.trim();
+      // Keep any additional phone numbers that were stored beyond the first.
+      const otherPhones = client?.phones.slice(1) ?? [];
+      await customerRepo.update(clientId, {
+        fullName: name.trim(),
+        phones: phone.trim() ? [phone.trim(), ...otherPhones] : otherPhones,
+        email: email.trim() || undefined,
+        notes: notes.trim() || undefined,
+        tags: pending && !tags.includes(pending) ? [...tags, pending] : tags,
+      });
+      toast.success("Client updated");
+      router.push(`/clients/${clientId}`);
+    } catch {
+      toast.error("Couldn't save changes");
+      setSaving(false);
+    }
   };
 
-  const handleDelete = async () => {
-    // In real app, would soft-delete. For demo, just go back
-    toast("Client deleted");
-    setDeleteOpen(false);
-    router.push("/clients");
-  };
+  const back = `/clients/${clientId}`;
 
-  if (loading || !client) {
+  if (status === "loading") {
     return (
-      <div className="px-4 pt-safe pt-8 text-center">
-        <p className="text-sm text-text-secondary">{loading ? "Loading..." : "Client not found"}</p>
-      </div>
+      <>
+        <PageHeader variant="compact" title="Edit client" back={back} width="sm" />
+        <PageBody width="sm">
+          <LoadingRegion>
+            <div className="space-y-5 pt-4">
+              <Skeleton variant="circular" width={80} height={80} className="mx-auto" />
+              {[0, 1, 2].map(i => (
+                <Skeleton key={i} height={48} className="rounded-[var(--radius-input)]" />
+              ))}
+            </div>
+          </LoadingRegion>
+        </PageBody>
+      </>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <>
+        <PageHeader variant="compact" title="Edit client" back={back} width="sm" />
+        <ErrorState title="Couldn't load this client" onRetry={() => { setStatus("loading"); load(); }} />
+      </>
+    );
+  }
+
+  if (!client) {
+    return (
+      <>
+        <PageHeader variant="compact" title="Edit client" back="/clients" width="sm" />
+        <EmptyState icon={<UserX />} title="Client not found" action={<Button onClick={() => router.push("/clients")}>Back to clients</Button>} />
+      </>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-cream">
-      <div className="px-4 pt-safe max-w-lg mx-auto pb-8">
-        <div className="flex items-center gap-3 pt-4 mb-6">
-          <button
-            onClick={() => router.back()}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-beige-light transition-colors"
-          >
-            <ArrowLeft size={20} strokeWidth={1.5} />
-          </button>
-          <h1 className="font-serif text-xl text-text-primary">Edit client</h1>
-        </div>
+    <>
+      <PageHeader variant="compact" title="Edit client" eyebrow={client.fullName} back={back} width="sm" />
+      <PageBody width="sm" className="pb-[max(32px,env(safe-area-inset-bottom))]">
+        <form onSubmit={handleSave} noValidate>
+          <div className="flex justify-center py-4">
+            <Avatar name={name || client.fullName} src={client.photoUrl} size="xl" />
+          </div>
 
-        {/* Avatar */}
-        <div className="flex justify-center mb-6">
-          <Avatar name={name || client.fullName} size="xl" />
-        </div>
+          <Overline className="mb-3 mt-2">Contact</Overline>
+          <div className="space-y-5">
+            <Input
+              label="Full name"
+              value={name}
+              onChange={e => {
+                setName(e.target.value);
+                setNameError(undefined);
+              }}
+              error={nameError}
+            />
+            <Input label="Phone" hint="Optional" type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+234 800 000 0000" />
+            <Input label="Email" hint="Optional" type="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" />
+          </div>
 
-        {/* Form */}
-        <div className="space-y-4 mb-8">
-          <Input
-            label="Full name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Enter client name"
-          />
-          <Input
-            label="Phone"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="+234 800 000 0000"
-            type="tel"
-          />
-          <Input
-            label="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="client@example.com"
-            type="email"
-          />
-          <Input
-            label="Tags"
-            value={tags}
-            onChange={e => setTags(e.target.value)}
-            placeholder="VIP, Regular, Wedding"
-            helperText="Separate with commas"
-          />
-          <div>
-            <label className="text-sm font-medium text-text-primary block mb-1.5">Notes</label>
-            <textarea
+          <Overline className="mb-3 mt-8">Organise</Overline>
+          <div className="space-y-5">
+            <div>
+              <Input
+                label="Tags"
+                hint="Press Enter to add"
+                value={tagDraft}
+                onChange={e => setTagDraft(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag();
+                  }
+                }}
+                onBlur={addTag}
+                placeholder="VIP, Wedding, Regular"
+              />
+              {tags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {tags.map(t => (
+                    <Tag key={t} variant="olive" removable onRemove={() => setTags(tags.filter(x => x !== t))}>
+                      {t}
+                    </Tag>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Textarea
+              label="Notes"
+              hint="Optional"
+              rows={4}
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="Preferences, allergies, referrals..."
-              className="w-full h-24 px-4 py-3 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-olive resize-none"
+              placeholder="Fit preferences, posture, referrals"
             />
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="space-y-3">
-          <Button
-            variant="primary"
-            className="w-full h-12"
-            disabled={!name.trim() || saving}
-            onClick={handleSave}
-          >
-            {saving ? "Saving..." : "Save changes"}
-          </Button>
-
-          <button
-            onClick={() => setDeleteOpen(true)}
-            className="flex items-center justify-center gap-2 w-full py-3 text-sm text-danger hover:underline"
-          >
-            <Trash2 size={14} strokeWidth={1.5} />
-            Delete client
-          </button>
-        </div>
-
-        {/* Delete confirmation */}
-        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete {client.fullName}?</DialogTitle>
-              <DialogDescription>
-                This will permanently delete this client and all their measurements. This action cannot be undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-              <Button variant="destructive-filled" onClick={handleDelete}>Delete</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </div>
+          <div className="mt-10 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" size="lg" onClick={() => router.push(back)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="lg" loading={saving}>
+              Save changes
+            </Button>
+          </div>
+        </form>
+      </PageBody>
+    </>
   );
 }

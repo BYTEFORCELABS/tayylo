@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Design source packs (icon artwork, previews, other-platform registries).
+    "design/**",
   ]),
 ]);
 

@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { Delete } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "./button";
 
 interface KeypadProps {
   value: string;
@@ -12,14 +14,25 @@ interface KeypadProps {
   nextLabel?: string;
   showPrevious?: boolean;
   className?: string;
+  /** Imperial uses tailor fractions (¼ ½ ¾); metric uses decimal precision instead. */
+  unit?: "imperial" | "metric";
 }
 
-const keypadKeys = [
+const imperialKeys = [
   ["1", "2", "3", "¼"],
   ["4", "5", "6", "½"],
   ["7", "8", "9", "¾"],
   [".", "0", "⌫", "Skip"],
 ] as const;
+
+const metricKeys = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  [".", "0", "⌫"],
+] as const;
+
+const FRACTIONS = ["¼", "½", "¾"];
 
 const Keypad: React.FC<KeypadProps> = ({
   value,
@@ -30,9 +43,15 @@ const Keypad: React.FC<KeypadProps> = ({
   nextLabel = "Next",
   showPrevious = true,
   className,
+  unit = "imperial",
 }) => {
-  const handleKeyPress = React.useCallback(
+  const keys = unit === "metric" ? metricKeys : imperialKeys;
+
+  const press = React.useCallback(
     (key: string) => {
+      try {
+        navigator.vibrate?.(4);
+      } catch {}
       switch (key) {
         case "⌫":
           onChange(value.slice(0, -1));
@@ -41,20 +60,18 @@ const Keypad: React.FC<KeypadProps> = ({
           onSkip?.();
           break;
         case ".":
-          if (!value.includes(".") && !value.includes("¼") && !value.includes("½") && !value.includes("¾")) {
-            onChange(value + ".");
-          }
+          if (!value.includes(".") && !FRACTIONS.some(f => value.includes(f))) onChange(value + ".");
           break;
         case "¼":
         case "½":
-        case "¾":
-          // Replace existing fraction or append
-          const withoutFraction = value.replace(/[¼½¾]/g, "").replace(/\.\d*$/, "");
-          onChange(withoutFraction + key);
+        case "¾": {
+          const whole = value.replace(/[¼½¾]/g, "").replace(/\.\d*$/, "");
+          onChange(whole + key);
           break;
+        }
         default:
-          // Don't allow decimals after fractions
-          if (value.includes("¼") || value.includes("½") || value.includes("¾")) return;
+          if (FRACTIONS.some(f => value.includes(f))) return;
+          if (value.replace(".", "").length >= 5) return;
           onChange(value + key);
       }
     },
@@ -62,75 +79,52 @@ const Keypad: React.FC<KeypadProps> = ({
   );
 
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      {/* Keypad grid */}
-      <div className="grid grid-cols-4 gap-1.5">
-        {keypadKeys.flat().map((key) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => handleKeyPress(key)}
-            className={cn(
-              "h-12 rounded-[var(--radius-button)] text-lg font-medium",
-              "transition-all duration-[var(--duration-fast)]",
-              "active:scale-[0.96] select-none",
-              "focus-visible:outline-2 focus-visible:outline-olive focus-visible:outline-offset-1",
-              key === "Skip"
-                ? "bg-transparent text-text-tertiary text-sm hover:bg-beige-light"
-                : key === "⌫"
-                ? "bg-transparent text-text-secondary hover:bg-beige-light"
-                : key === "¼" || key === "½" || key === "¾"
-                ? "bg-beige-light text-olive-deep hover:bg-beige"
-                : "bg-white-warm text-text-primary border border-border hover:bg-beige-light"
-            )}
-            aria-label={
-              key === "⌫" ? "Backspace" : key === "Skip" ? "Skip this field" : key
-            }
-          >
-            {key === "⌫" ? (
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mx-auto"
-              >
-                <path d="M21 4H8l-7 8 7 8h13a2 2 0 002-2V6a2 2 0 00-2-2z" />
-                <line x1="18" y1="9" x2="12" y2="15" />
-                <line x1="12" y1="9" x2="18" y2="15" />
-              </svg>
-            ) : (
-              key
-            )}
-          </button>
-        ))}
+    <div className={cn("flex flex-col gap-3", className)}>
+      <div className={cn("grid gap-2", unit === "metric" ? "grid-cols-3" : "grid-cols-4")}>
+        {keys.flat().map(key => {
+          const isFraction = FRACTIONS.includes(key);
+          const isUtility = key === "⌫" || key === "Skip";
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => press(key)}
+              aria-label={key === "⌫" ? "Delete" : key === "Skip" ? "Skip this measurement" : key}
+              className={cn(
+                "flex h-14 items-center justify-center rounded-[var(--radius-control)] select-none",
+                "transition-[background-color,transform] duration-[var(--duration-fast)] active:scale-[0.95]",
+                isUtility
+                  ? "text-label font-semibold text-text-secondary hover:bg-surface-sunken active:bg-surface-sunken"
+                  : isFraction
+                    ? "bg-olive-soft text-[22px] font-semibold text-olive-deep hover:bg-[#DCE0CC]"
+                    : "bg-surface-raised text-[22px] font-medium text-ink shadow-[var(--shadow-xs)] hover:bg-surface active:bg-beige-light"
+              )}
+            >
+              {key === "⌫" ? <Delete size={22} strokeWidth={1.75} /> : key}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Navigation buttons */}
-      <div className="flex gap-2 mt-1">
-        {showPrevious && (
-          <button
-            type="button"
-            onClick={onPrevious}
-            className="flex-1 h-12 rounded-[var(--radius-button)] bg-white-warm border border-border text-text-primary text-sm font-medium hover:bg-beige-light transition-colors active:scale-[0.98]"
-          >
-            Previous
-          </button>
-        )}
+      {unit === "metric" && onSkip && (
         <button
           type="button"
-          onClick={onNext}
-          className={cn(
-            "h-12 rounded-[var(--radius-button)] bg-olive text-white-warm text-sm font-medium hover:bg-olive-deep transition-colors active:scale-[0.98]",
-            showPrevious ? "flex-1" : "w-full"
-          )}
+          onClick={onSkip}
+          className="self-center rounded-full px-3 py-1.5 text-label font-semibold text-text-tertiary hover:bg-surface-sunken hover:text-ink"
         >
-          {nextLabel}
+          Skip this measurement
         </button>
+      )}
+
+      <div className="flex gap-2.5">
+        {showPrevious && (
+          <Button type="button" variant="secondary" size="lg" onClick={onPrevious} className="flex-1">
+            Previous
+          </Button>
+        )}
+        <Button type="button" size="lg" onClick={onNext} className={cn(showPrevious ? "flex-[2]" : "w-full", "min-w-0")}>
+          <span className="truncate">{nextLabel}</span>
+        </Button>
       </div>
     </div>
   );

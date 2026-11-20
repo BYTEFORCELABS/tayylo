@@ -2,297 +2,270 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, ArrowRight, Check, Sparkles, Ruler, Layers, Feather, Gem, Shirt } from "lucide-react";
-import { businessRepo } from "@/lib/mock/store";
+import { ArrowRight, Check } from "lucide-react";
+import { toast } from "sonner";
+import { AuthLayout } from "@/components/auth/auth-layout";
+import { BackButton } from "@/components/ui/page";
+import { Button } from "@/components/ui/button";
+import { Input, Select } from "@/components/ui/input";
+import { BrandLoader } from "@/components/brand/brand-loader";
+import { GarmentIcon } from "@/components/brand/garment-icon";
+import { businessRepo } from "@/lib/data/store";
+import { setCachedBusiness } from "@/lib/use-business";
+import { CURRENCIES, currencySymbol, formatMoney } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
-// Each entry either has a real reference photo (when we have one that's
-// actually distinct for that garment) or falls back to an icon tile —
-// several categories would otherwise share the exact same stock photo,
-// which reads as more confusing than a plain icon.
-const garmentChips = [
-  { name: "Suits", image: "/garments/suit.jpg" },
-  { name: "Shirts", image: "/garments/shirt.jpg" },
-  { name: "Trousers", image: "/garments/trousers.jpg" },
-  { name: "Jackets", image: "/garments/blazer.jpg" },
-  { name: "Agbada", image: "/garments/agbada.jpg" },
-  { name: "Senator", image: "/garments/senator.jpg" },
-  { name: "Kaftan", image: "/garments/kaftan.jpg" },
-  { name: "Dresses", image: "/garments/dress.jpg" },
-  { name: "Skirts", icon: Layers },
-  { name: "Boubou", icon: Feather },
-  { name: "Kurta", icon: Shirt },
-  { name: "Bridal", icon: Gem },
+const GARMENTS = [
+  "Suits", "Shirts", "Trousers", "Jackets", "Agbada", "Senator",
+  "Kaftan", "Dresses", "Skirts", "Boubou", "Kurta", "Bridal",
 ];
+
+const STEPS = [
+  { key: "studio", label: "Studio", image: "/pictures/happywomanailorwithtab.jpg" },
+  { key: "units", label: "Units", image: "/pictures/tailorpic2.jpg" },
+  { key: "garments", label: "Garments", image: "/garments/atelier_banner.jpg" },
+] as const;
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { status } = useSession();
   const [step, setStep] = React.useState(0);
+  const [dir, setDir] = React.useState(1);
   const [businessName, setBusinessName] = React.useState("");
+  const [ownerName, setOwnerName] = React.useState("");
+  const [currency, setCurrency] = React.useState("NGN");
   const [unit, setUnit] = React.useState<"imperial" | "metric">("imperial");
-  const [selectedGarments, setSelectedGarments] = React.useState<string[]>([
-    "Suits", "Shirts", "Agbada", "Senator",
-  ]);
+  const [garments, setGarments] = React.useState<string[]>(["Suits", "Shirts", "Agbada", "Senator"]);
+  const [nameError, setNameError] = React.useState<string>();
+  const [saving, setSaving] = React.useState(false);
 
-  const totalSteps = 3;
+  React.useEffect(() => {
+    if (status === "unauthenticated") router.replace("/auth?mode=signin");
+  }, [status, router]);
 
-  const handleFinish = async () => {
-    await businessRepo.update({
-      name: businessName.trim() || "Ijeoma's Bespoke Studio",
-      unitSystem: unit,
-      garmentTypes: selectedGarments,
-    });
-    await businessRepo.setOnboarded(true);
-    router.push("/today");
+  if (status !== "authenticated") return <BrandLoader label="Preparing setup" />;
+
+  const finish = async (skip = false) => {
+    setSaving(true);
+    try {
+      const updated = await businessRepo.update({
+        name: businessName.trim() || "My Atelier",
+        ...(ownerName.trim() ? { ownerName: ownerName.trim() } : {}),
+        ...(skip ? {} : { currency, unitSystem: unit, garmentTypes: garments }),
+      });
+      setCachedBusiness(updated);
+      router.push("/today");
+    } catch {
+      toast.error("Couldn't save your setup. Check your connection and try again.");
+      setSaving(false);
+    }
   };
 
-  const toggleGarment = (g: string) => {
-    setSelectedGarments(prev =>
-      prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g]
-    );
+  const next = () => {
+    if (step === 0 && !businessName.trim()) {
+      setNameError("Give your studio a name — you can change it later");
+      return;
+    }
+    if (step < STEPS.length - 1) {
+      setDir(1);
+      setStep(step + 1);
+    } else {
+      finish();
+    }
   };
 
-  const canNext =
-    step === 0 ? businessName.trim().length > 0 :
-    step === 1 ? true :
-    selectedGarments.length > 0;
-
-  const handleNext = () => {
-    if (step < totalSteps - 1) setStep(step + 1);
-    else handleFinish();
+  const back = () => {
+    setDir(-1);
+    setStep(s => Math.max(0, s - 1));
   };
 
-  return (
-    <div className="min-h-[100dvh] bg-cream flex flex-col justify-between p-4 sm:p-6 w-full max-w-md mx-auto">
-      {/* Header with Back, Step Dots & Skip */}
-      <div className="flex items-center justify-between w-full pt-safe">
-        <button
-          onClick={() => (step > 0 ? setStep(step - 1) : router.back())}
-          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-beige-light transition-colors text-text-primary"
-          aria-label="Go back"
-        >
-          <ArrowLeft size={20} strokeWidth={1.5} />
-        </button>
-
-        {/* Step Indicator Dots */}
-        <div className="flex items-center gap-1.5">
-          {[0, 1, 2].map(i => (
+  const progress = (
+    <div className="flex w-full items-center gap-4">
+      {step > 0 ? <BackButton onClick={back} label="Previous step" /> : <span className="size-10 shrink-0" />}
+      <div className="flex-1">
+        <div className="flex gap-1.5" aria-hidden>
+          {STEPS.map((s, i) => (
             <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                step === i
-                  ? "w-7 bg-olive"
-                  : step > i
-                  ? "w-2.5 bg-olive/50"
-                  : "w-2.5 bg-border"
-              }`}
+              key={s.key}
+              className={cn(
+                "h-1 flex-1 rounded-full transition-colors duration-[var(--duration-slow)]",
+                i <= step ? "bg-ink" : "bg-surface-sunken"
+              )}
             />
           ))}
         </div>
-
-        <button
-          onClick={handleFinish}
-          className="text-xs font-semibold text-text-tertiary hover:text-text-primary px-3 py-1.5 rounded-full hover:bg-beige-light transition-colors"
-        >
-          Skip
-        </button>
+        <p className="mt-2 text-caption text-text-tertiary">
+          Step {step + 1} of {STEPS.length} · {STEPS[step].label}
+        </p>
       </div>
+      <Button variant="ghost" size="sm" onClick={() => finish(true)} disabled={saving}>
+        Skip
+      </Button>
+    </div>
+  );
 
-      {/* Center-Aligned Onboarding Content Box */}
-      <div className="my-auto py-6 w-full flex flex-col items-center justify-center">
-        <div className="w-full bg-[var(--color-card-bg,#FFFDF8)] p-6 sm:p-7 rounded-[22px] border border-border shadow-card">
-          <AnimatePresence mode="wait">
+  return (
+    <AuthLayout top={progress} image={STEPS[step].image} quote="Set up once. Every measurement, order and fitting follows your studio's way of working.">
+      <div className="flex flex-1 flex-col">
+        <AnimatePresence mode="wait" custom={dir} initial={false}>
+          <motion.div
+            key={step}
+            custom={dir}
+            initial={{ opacity: 0, x: dir * 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: dir * -24 }}
+            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+            className="flex-1"
+          >
             {step === 0 && (
-              <motion.div
-                key="step0"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25 }}
-                className="text-center"
-              >
-                <div className="w-12 h-12 rounded-full bg-olive/10 text-olive flex items-center justify-center mx-auto mb-4">
-                  <Sparkles size={22} strokeWidth={1.75} />
-                </div>
-
-                <h1 className="font-serif text-2xl font-bold text-text-primary mb-2">
-                  What is your atelier called?
-                </h1>
-                <p className="text-xs sm:text-sm text-text-secondary mb-6 leading-relaxed">
-                  This will appear on your measurement cards, fittings, and client receipts.
-                </p>
-
-                <div className="text-left">
-                  <label className="block text-xs font-semibold text-text-primary mb-1.5">
-                    Studio or Business Name
-                  </label>
-                  <input
-                    type="text"
+              <>
+                <h1 className="text-title text-ink">What&apos;s your studio called?</h1>
+                <p className="mt-2 text-body text-text-secondary">It appears on measurement cards you share with clients.</p>
+                <div className="mt-8 space-y-5">
+                  <Input
+                    label="Studio or business name"
+                    placeholder="e.g. Adire House Tailoring"
                     value={businessName}
-                    onChange={e => setBusinessName(e.target.value)}
-                    placeholder="e.g. Ijeoma's Bespoke Studio"
-                    className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm sm:text-base text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive shadow-xs"
+                    onChange={e => {
+                      setBusinessName(e.target.value);
+                      setNameError(undefined);
+                    }}
+                    onKeyDown={e => e.key === "Enter" && next()}
+                    error={nameError}
                     autoFocus
                   />
+                  <Input
+                    label="Your name"
+                    hint="Optional"
+                    placeholder="So we can greet you"
+                    value={ownerName}
+                    onChange={e => setOwnerName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && next()}
+                  />
                 </div>
-              </motion.div>
+              </>
             )}
 
             {step === 1 && (
-              <motion.div
-                key="step1"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25 }}
-                className="text-center"
-              >
-                <div className="w-12 h-12 rounded-full bg-olive/10 text-olive flex items-center justify-center mx-auto mb-4">
-                  <Ruler size={22} strokeWidth={1.75} />
-                </div>
+              <>
+                <h1 className="text-title text-ink">How do you work?</h1>
+                <p className="mt-2 text-body text-text-secondary">Both can be changed later in Settings.</p>
 
-                <h1 className="font-serif text-2xl font-bold text-text-primary mb-2">
-                  How do you take measurements?
-                </h1>
-                <p className="text-xs sm:text-sm text-text-secondary mb-6 leading-relaxed">
-                  Choose your preferred tape system. You can switch anytime in settings.
-                </p>
+                <fieldset className="mt-8">
+                  <legend className="mb-2 text-label font-semibold text-ink">Tape measure</legend>
+                  <div className="grid grid-cols-2 gap-3" role="radiogroup">
+                    {(
+                      [
+                        { value: "imperial", title: "Inches", sub: "With ¼ ½ ¾", sample: "41¾" , u: "in" },
+                        { value: "metric", title: "Centimetres", sub: "To 0.5 cm", sample: "106.0", u: "cm" },
+                      ] as const
+                    ).map(o => {
+                      const selected = unit === o.value;
+                      return (
+                        <button
+                          key={o.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setUnit(o.value)}
+                          className={cn(
+                            "relative flex flex-col items-start rounded-[var(--radius-card)] border p-4 text-left transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)]",
+                            selected
+                              ? "border-ink bg-surface-raised shadow-[0_0_0_1px_var(--color-ink)]"
+                              : "border-border bg-surface hover:border-border-strong"
+                          )}
+                        >
+                          <span className="measurement-value text-[28px] font-semibold leading-none text-ink">
+                            {o.sample}
+                            <span className="ml-1 text-label font-medium text-text-tertiary">{o.u}</span>
+                          </span>
+                          <span className="mt-4 text-[15px] font-semibold text-ink">{o.title}</span>
+                          <span className="text-caption text-text-tertiary">{o.sub}</span>
+                          {selected && (
+                            <span className="absolute right-3 top-3 flex size-5 items-center justify-center rounded-full bg-ink text-text-inverse">
+                              <Check size={12} strokeWidth={3} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
 
-                <div className="space-y-2.5 text-left mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setUnit("imperial")}
-                    className={`flex items-center justify-between w-full p-3.5 rounded-[var(--radius-card)] border transition-all ${
-                      unit === "imperial"
-                        ? "border-olive bg-olive/5 ring-1 ring-olive shadow-xs"
-                        : "border-border bg-white-warm hover:bg-beige-light/40"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-semibold text-sm text-text-primary">Inches (Imperial)</p>
-                      <p className="text-xs text-text-secondary">With tailor fractions: ¼ ½ ¾</p>
-                    </div>
-                    {unit === "imperial" && (
-                      <div className="w-6 h-6 rounded-full bg-olive flex items-center justify-center text-white-warm">
-                        <Check size={14} strokeWidth={2.5} />
-                      </div>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setUnit("metric")}
-                    className={`flex items-center justify-between w-full p-3.5 rounded-[var(--radius-card)] border transition-all ${
-                      unit === "metric"
-                        ? "border-olive bg-olive/5 ring-1 ring-olive shadow-xs"
-                        : "border-border bg-white-warm hover:bg-beige-light/40"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-semibold text-sm text-text-primary">Centimetres (Metric)</p>
-                      <p className="text-xs text-text-secondary">With decimal precision: 0.5 cm</p>
-                    </div>
-                    {unit === "metric" && (
-                      <div className="w-6 h-6 rounded-full bg-olive flex items-center justify-center text-white-warm">
-                        <Check size={14} strokeWidth={2.5} />
-                      </div>
-                    )}
-                  </button>
-                </div>
-
-                {/* Live tape preview */}
-                <div className="p-3 bg-beige-light/35 border border-border/80 rounded-[var(--radius-card)] text-center">
-                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mb-1">
-                    Display Preview
-                  </p>
-                  <p className="text-2xl font-bold font-mono text-text-primary">
-                    {unit === "imperial" ? "41 ¾ in" : "106.0 cm"}
-                  </p>
-                </div>
-              </motion.div>
+                <Select
+                  containerClassName="mt-6"
+                  label="Currency"
+                  value={currency}
+                  onChange={e => setCurrency(e.target.value)}
+                  helperText={`Prices will look like ${formatMoney(4500000, currency)}`}
+                >
+                  {CURRENCIES.map(c => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} · {currencySymbol(c.code)} · {c.name}
+                    </option>
+                  ))}
+                </Select>
+              </>
             )}
 
             {step === 2 && (
-              <motion.div
-                key="step2"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                transition={{ duration: 0.25 }}
-                className="text-center"
-              >
-                <h1 className="font-serif text-2xl font-bold text-text-primary mb-2">
-                  What garments do you tailor?
-                </h1>
-                <p className="text-xs sm:text-sm text-text-secondary mb-6 leading-relaxed">
-                  We will configure your measurement templates and garment studio.
-                </p>
-
-                <div className="grid grid-cols-3 gap-3 mb-2">
-                  {garmentChips.map(({ name, image, icon: Icon }) => {
-                    const isSelected = selectedGarments.includes(name);
+              <>
+                <h1 className="text-title text-ink">What do you make?</h1>
+                <p className="mt-2 text-body text-text-secondary">Pick all that apply. This tailors your workspace — you can still make anything.</p>
+                <div className="mt-8 grid grid-cols-3 gap-2" role="group" aria-label="Garments">
+                  {GARMENTS.map(g => {
+                    const selected = garments.includes(g);
                     return (
                       <button
-                        key={name}
+                        key={g}
                         type="button"
-                        onClick={() => toggleGarment(name)}
-                        className="flex flex-col items-center gap-1.5 active:scale-[0.96] transition-transform"
+                        aria-pressed={selected}
+                        onClick={() => setGarments(prev => (selected ? prev.filter(x => x !== g) : [...prev, g]))}
+                        className={cn(
+                          "relative flex flex-col items-center gap-2 rounded-[var(--radius-card)] border px-2 pt-4 pb-3",
+                          "transition-[background-color,border-color,transform] duration-[var(--duration-fast)] active:scale-[0.97]",
+                          selected
+                            ? "border-ink bg-surface-raised text-ink shadow-[0_0_0_1px_var(--color-ink)]"
+                            : "border-border/80 bg-surface text-text-secondary hover:border-border-strong hover:text-ink"
+                        )}
                       >
-                        <div
-                          className={`relative w-full aspect-square rounded-2xl overflow-hidden transition-all ${
-                            isSelected ? "ring-2 ring-olive" : "ring-1 ring-border"
-                          } ${image ? "" : "bg-beige-light flex items-center justify-center"}`}
-                        >
-                          {image ? (
-                            <img src={image} alt={name} className="w-full h-full object-cover" />
-                          ) : (
-                            Icon && <Icon size={26} strokeWidth={1.5} className="text-olive" />
-                          )}
-                          {isSelected && (
-                            <div className="absolute inset-0 bg-olive/25 flex items-center justify-center">
-                              <div className="w-6 h-6 rounded-full bg-olive flex items-center justify-center text-white-warm">
-                                <Check size={14} strokeWidth={2.5} />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <span
-                          className={`text-xs font-medium ${
-                            isSelected ? "text-olive font-semibold" : "text-text-primary"
-                          }`}
-                        >
-                          {name}
-                        </span>
+                        <GarmentIcon garment={g} size={36} label="" />
+                        <span className="text-caption font-medium">{g}</span>
+                        {selected && (
+                          <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-ink text-text-inverse animate-scale-in">
+                            <Check size={12} strokeWidth={3} />
+                          </span>
+                        )}
                       </button>
                     );
                   })}
                 </div>
-              </motion.div>
+                <p className="mt-4 text-caption text-text-tertiary">
+                  {garments.length} selected
+                </p>
+              </>
             )}
-          </AnimatePresence>
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="pt-10">
+          <Button size="lg" block onClick={next} loading={saving} disabled={step === 2 && garments.length === 0}>
+            {step === STEPS.length - 1 ? (
+              <>
+                Open my workspace
+                <Check />
+              </>
+            ) : (
+              <>
+                Continue
+                <ArrowRight />
+              </>
+            )}
+          </Button>
         </div>
       </div>
-
-      {/* Bottom Action Area */}
-      <div className="w-full pb-safe pt-2">
-        <button
-          onClick={handleNext}
-          disabled={!canNext}
-          className="flex items-center justify-center gap-2 w-full h-12 rounded-[var(--radius-button)] bg-olive text-white-warm font-semibold text-sm sm:text-base hover:bg-olive-deep transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-        >
-          {step === totalSteps - 1 ? (
-            <>
-              Launch Atelier Studio
-              <Check size={18} strokeWidth={2} />
-            </>
-          ) : (
-            <>
-              Continue
-              <ArrowRight size={18} strokeWidth={1.75} />
-            </>
-          )}
-        </button>
-      </div>
-    </div>
+    </AuthLayout>
   );
 }

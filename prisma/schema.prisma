@@ -1,0 +1,246 @@
+// ============================================================
+// Tayylo — Prisma schema (self-hosted Postgres, e.g. Neon)
+//
+// Plus User + PasswordResetToken for our own Auth.js-based authentication.
+// Field names are camelCase end-to-end to match src/types/index.ts —
+// there is no snake_case translation layer anymore.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---- auth ----
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  business            Business?
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---- business ----
+
+model Business {
+  id           String   @id @default(uuid())
+  ownerId      String   @unique
+  owner        User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name         String
+  country      String   @default("")
+  currency     String   @default("NGN")
+  unitSystem   String   @default("imperial") // "imperial" | "metric"
+  timezone     String   @default("")
+  ownerName    String   @default("")
+  garmentTypes String[] @default([])
+  createdAt    DateTime @default(now())
+
+  customers Customer[]
+  templates MeasurementTemplate[]
+  measurementSets MeasurementSet[]
+  orders    Order[]
+  media     Media[]
+}
+
+// ---- customers ----
+
+model Customer {
+  id        String   @id @default(uuid())
+  businessId String
+  business  Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  fullName  String
+  phones    String[] @default([])
+  email     String?
+  tags      String[] @default([])
+  notes     String?
+  photoUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  measurementSets MeasurementSet[]
+  orders          Order[]
+
+  @@index([businessId])
+}
+
+// ---- media (customer/order/fitting photos) ----
+
+model Media {
+  id         String   @id @default(uuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  ownerType  String // "customer" | "order" | "fitting"
+  ownerId    String
+  url        String
+  caption    String?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+  @@index([ownerType, ownerId])
+}
+
+// ---- measurement templates ----
+
+model MeasurementTemplate {
+  id          String    @id @default(uuid())
+  businessId  String? // null = global/system template
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  category    String
+  version     Int       @default(1)
+  imageUrl    String?
+  archivedAt  DateTime?
+
+  fields          TemplateField[]
+  measurementSets MeasurementSet[]
+
+  @@index([businessId])
+}
+
+model TemplateField {
+  id         String               @id @default(uuid())
+  templateId String
+  template   MeasurementTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  key        String
+  label      String
+  group      String
+  minMm      Int?
+  maxMm      Int?
+  sortOrder  Int                  @default(0)
+  diagramRef String?
+
+  @@index([templateId])
+}
+
+// ---- measurement sets ----
+
+model MeasurementSet {
+  id            String    @id @default(uuid())
+  businessId    String
+  business      Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  templateId    String
+  template      MeasurementTemplate @relation(fields: [templateId], references: [id])
+  templateName  String
+  takenAt       DateTime  @default(now())
+  takenBy       String?
+  source        String    @default("manual") // "manual" | "import" | "restored"
+  supersedesId  String?
+  note          String?
+  status        String    @default("final") // "draft" | "final"
+
+  values MeasurementValue[]
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([templateId])
+}
+
+model MeasurementValue {
+  id               String         @id @default(uuid())
+  measurementSetId String
+  measurementSet   MeasurementSet @relation(fields: [measurementSetId], references: [id], onDelete: Cascade)
+  fieldKey         String
+  labelSnapshot    String
+  valueMm          Int
+  rawInput         String
+
+  @@index([measurementSetId])
+}
+
+// ---- orders ----
+
+model Order {
+  id           String   @id @default(uuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerName String
+  number       String
+  statusName   String   @default("pending")
+  dueAt        DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  note         String?
+  priceMinor   Int      @default(0)
+  currency     String   @default("NGN")
+
+  items    OrderItem[]
+  payments Payment[]
+  fittings Fitting[]
+
+  @@index([businessId])
+  @@index([customerId])
+}
+
+model OrderItem {
+  id               String  @id @default(uuid())
+  orderId          String
+  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  garmentType      String
+  measurementSetId String?
+  styleNotes       String?
+  photos           String[] @default([])
+  imageUrl         String?
+
+  @@index([orderId])
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amountMinor Int
+  paidAt      DateTime @default(now())
+  method      String
+  reference   String?
+
+  @@index([orderId])
+}
+
+model Fitting {
+  id             String   @id @default(uuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  number         Int
+  fittedAt       DateTime @default(now())
+  notes          String?
+  outcome        String // "adjustments_needed" | "approved" | "skipped"
+  resultingSetId String?
+
+  adjustments FittingAdjustment[]
+
+  @@index([orderId])
+}
+
+model FittingAdjustment {
+  id        String  @id @default(uuid())
+  fittingId String
+  fitting   Fitting @relation(fields: [fittingId], references: [id], onDelete: Cascade)
+  fieldKey  String
+  label     String
+  deltaMm   Int
+  rawDelta  String
+
+  @@index([fittingId])
+}
