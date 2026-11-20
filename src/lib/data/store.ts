@@ -218,6 +218,15 @@ export const orderRepo = {
       `order:${orderId}`
     );
   },
+  /** Removes a fitting logged by mistake; later fittings are renumbered. */
+  async deleteFitting(orderId: string, fittingId: string): Promise<boolean> {
+    const result = await mutating(
+      api<{ ok: boolean }>(`/api/orders/${orderId}/fittings/${fittingId}`, { method: "DELETE" }),
+      "orders",
+      `order:${orderId}`
+    );
+    return result?.ok ?? false;
+  },
   async addFitting(
     orderId: string,
     fitting: { outcome: "adjustments_needed" | "approved"; adjustments: Fitting["adjustments"]; notes?: string; fittedAt?: string }
@@ -273,5 +282,60 @@ export const accountRepo = {
   async delete(): Promise<void> {
     await api("/api/account", { method: "DELETE" });
     clearQueries();
+  },
+};
+
+// ---- me / explore ----
+
+import type { ExplorePage, ExplorePost } from "@/lib/explore";
+
+export interface Me {
+  id: string;
+  email: string;
+  role: "tailor" | "customer";
+}
+
+export const meRepo = {
+  async get(): Promise<Me | null> {
+    return api<Me | null>("/api/me");
+  },
+};
+
+export const exploreRepo = {
+  async list(params: { country?: string; category?: string; q?: string; cursor?: string }): Promise<ExplorePage> {
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v) qs.set(k, v);
+    return (await api<ExplorePage>(`/api/explore?${qs}`)) ?? { posts: [], nextCursor: null, countries: [] };
+  },
+  async saved(): Promise<ExplorePost[]> {
+    return (await api<ExplorePost[]>("/api/explore/saved")) ?? [];
+  },
+  /** Uploads a (pre-compressed) photo and returns its public URL. */
+  async upload(blob: Blob): Promise<string> {
+    const form = new FormData();
+    form.set("file", new File([blob], "style.jpg", { type: "image/jpeg" }));
+    const res = await fetch("/api/explore/upload", { method: "POST", body: form });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiRequestError(res.status, body.error || "Couldn't upload the photo");
+    }
+    return (await res.json()).url as string;
+  },
+  async create(data: {
+    imageUrl: string;
+    caption?: string;
+    country: string;
+    category: string;
+    tags: string[];
+    width?: number;
+    height?: number;
+  }): Promise<ExplorePost> {
+    return mutating(api<ExplorePost>("/api/explore", { method: "POST", body: JSON.stringify(data) }), "explore");
+  },
+  async remove(id: string): Promise<void> {
+    await mutating(api("/api/explore/" + id, { method: "DELETE" }), "explore");
+  },
+  async setSaved(id: string, saved: boolean): Promise<void> {
+    await api(`/api/explore/${id}/save`, { method: saved ? "POST" : "DELETE" });
   },
 };

@@ -6,8 +6,9 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight, Compass } from "lucide-react";
+import { useMe } from "@/lib/use-business";
 import { useShell } from "@/components/shell/shell-context";
 import { previousPath } from "@/lib/nav-history";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,8 @@ export function PageHeader({
 }: PageHeaderProps) {
   const { hasSidebar } = useShell();
   const goBack = useBack();
+  const pathname = usePathname();
+  const { role } = useMe();
   const ref = React.useRef<HTMLElement>(null);
   const [height, setHeight] = React.useState(0);
   const [scrolled, setScrolled] = React.useState(false);
@@ -97,6 +100,18 @@ export function PageHeader({
     ) : null;
 
   const collapsed = variant === "large" && scrolled;
+
+  // Tailors reach Explore from the top bar of the main tabs (desktop has it in the sidebar).
+  const exploreLink =
+    role === "tailor" && variant === "large" && !back && !onBack && !pathname.startsWith("/explore") ? (
+      <Link
+        href="/explore"
+        aria-label="Explore styles"
+        className="flex size-10 items-center justify-center rounded-full border border-border bg-surface-raised text-ink transition-colors hover:border-border-strong lg:hidden"
+      >
+        <Compass size={20} strokeWidth={1.75} />
+      </Link>
+    ) : null;
 
   return (
     <>
@@ -162,7 +177,12 @@ export function PageHeader({
                   )}
                 </div>
               </div>
-              {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+              {(actions || exploreLink) && (
+                <div className="flex shrink-0 items-center gap-2">
+                  {exploreLink}
+                  {actions}
+                </div>
+              )}
             </div>
           )}
           {children}

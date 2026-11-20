@@ -77,7 +77,12 @@ export default function TodayPage() {
           >
             <Bell />
             {unread > 0 && (
-              <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-olive ring-2 ring-surface-raised" />
+              <span
+                aria-hidden
+                className="tabular absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#D93A2B] px-1 text-[10.5px] font-bold leading-none text-white ring-2 ring-canvas animate-scale-in"
+              >
+                {unread > 9 ? "9+" : unread}
+              </span>
             )}
           </Button>
         </>
@@ -90,7 +95,7 @@ export default function TodayPage() {
       <>
         {header}
         <PageBody width="lg">
-          <LoadingRegion label="Loading today">
+          <LoadingRegion label="Loading home">
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
               <div className="space-y-8">
                 <Skeleton variant="rectangular" height={232} className="rounded-[var(--radius-panel)]" />
@@ -111,7 +116,7 @@ export default function TodayPage() {
       <>
         {header}
         <ErrorState
-          title="Couldn't load today"
+          title="Couldn't load home"
           onRetry={retry}
         />
       </>

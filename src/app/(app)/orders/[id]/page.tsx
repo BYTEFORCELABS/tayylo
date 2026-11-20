@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Check, CreditCard, Plus, Ruler, Scissors, ChevronRight, FileQuestion } from "lucide-react";
+import { Check, CreditCard, Plus, Ruler, Scissors, ChevronRight, FileQuestion, FileText, ReceiptText, Lock, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,18 @@ import { PageBody, PageHeader, Section } from "@/components/ui/page";
 import { EmptyState, ErrorState, LoadingRegion, Skeleton } from "@/components/ui/states";
 import { StatusTag, Tag } from "@/components/ui/tag";
 import { AnimatePresence, motion } from "motion/react";
-import { AddMaterialSheet, MaterialHero, MaterialStrip, MaterialViewer, useOrderMaterials } from "@/components/order/materials";
+import { AddMaterialSheet, MaterialHero, MaterialStrip, MaterialViewer, StyleGallery, useOrderMaterials } from "@/components/order/materials";
+import { documentNumber, receiptAvailable } from "@/components/order/order-document";
+import { MeasurementIcon } from "@/components/brand/measurement-icon";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { MaterialKind } from "@/lib/fabrics";
 import { ProductionTracker } from "@/components/order/production-tracker";
 import { GarmentIcon } from "@/components/brand/garment-icon";
 import { RecordPaymentDialog } from "@/components/payment-dialog";
@@ -35,7 +46,7 @@ import {
   normalizeStatus,
   statusLabel,
 } from "@/lib/orders";
-import type { Order, OrderStatusName } from "@/types";
+import type { Fitting, Order, OrderStatusName } from "@/types";
 
 export default function OrderDetailPage() {
   const router = useRouter();
@@ -61,6 +72,13 @@ export default function OrderDetailPage() {
   const [payOpen, setPayOpen] = React.useState(false);
   const [fittingOpen, setFittingOpen] = React.useState(false);
   const [addPhotoOpen, setAddPhotoOpen] = React.useState(false);
+  const [addKind, setAddKind] = React.useState<MaterialKind>("Fabric");
+  const [deletingFitting, setDeletingFitting] = React.useState<Fitting | null>(null);
+  const [deleteBusy, setDeleteBusy] = React.useState(false);
+  const openAdd = (kind: MaterialKind) => {
+    setAddKind(kind);
+    setAddPhotoOpen(true);
+  };
   const [viewerIndex, setViewerIndex] = React.useState<number | null>(null);
 
   const refreshOrder = async () => {
@@ -171,11 +189,26 @@ export default function OrderDetailPage() {
             clientPhoto={customer?.photoUrl}
             subtitle={isActive(order) ? dueLabel(order.dueAt) : `Due ${formatDate(order.dueAt)}`}
             subtitleTone={overdue ? "danger" : "default"}
-            onAdd={() => setAddPhotoOpen(true)}
+            onAdd={() => openAdd("Fabric")}
             onOpen={setViewerIndex}
           />
-          <MaterialStrip order={order} onAdd={() => setAddPhotoOpen(true)} onOpen={setViewerIndex} />
+          <MaterialStrip order={order} onAdd={() => openAdd("Fabric")} onOpen={setViewerIndex} />
         </div>
+
+        {/* Style references — the look the client asked for */}
+        <Section
+          title="Style"
+          trailing={
+            (order.media ?? []).some(m => m.caption?.startsWith("Style")) ? (
+              <Button variant="secondary" size="sm" onClick={() => openAdd("Style")}>
+                <Plus />
+                Add style
+              </Button>
+            ) : undefined
+          }
+        >
+          <StyleGallery order={order} onAdd={() => openAdd("Style")} onOpen={setViewerIndex} />
+        </Section>
 
         {/* Production */}
         <div className="mt-6">
@@ -244,6 +277,56 @@ export default function OrderDetailPage() {
               </ul>
             )}
           </Card>
+        </Section>
+
+        {/* Invoice & receipt */}
+        <Section title="Documents">
+          <List>
+            <ListItem
+              href={`/orders/${order.id}/invoice`}
+              leading={
+                <IconTile tone="olive">
+                  <FileText />
+                </IconTile>
+              }
+              title={`Invoice ${documentNumber("invoice", order)}`}
+              subtitle={
+                order.priceMinor > 0
+                  ? balance > 0
+                    ? `${formatMoney(balance, order.currency)} due · ready to print or share`
+                    : "Fully paid · ready to print or share"
+                  : "Set a price to show amounts"
+              }
+              chevron
+            />
+            {receiptAvailable(order) ? (
+              <ListItem
+                href={`/orders/${order.id}/receipt`}
+                leading={
+                  <IconTile tone="success">
+                    <ReceiptText />
+                  </IconTile>
+                }
+                title={`Receipt ${documentNumber("receipt", order)}`}
+                subtitle={`Paid in full · ${formatMoney(order.priceMinor, order.currency)}`}
+                chevron
+              />
+            ) : (
+              <ListItem
+                leading={
+                  <IconTile>
+                    <Lock />
+                  </IconTile>
+                }
+                title={<span className="text-text-secondary">Receipt</span>}
+                subtitle={
+                  order.priceMinor > 0
+                    ? `Generated automatically once the remaining ${formatMoney(balance, order.currency)} is paid`
+                    : "Generated once a price is set and paid"
+                }
+              />
+            )}
+          </List>
         </Section>
 
         {/* Garment details */}
@@ -332,15 +415,27 @@ export default function OrderDetailPage() {
                     title={`Fitting ${f.number}`}
                     subtitle={formatDate(f.fittedAt)}
                     trailing={
-                      <Tag size="sm" variant={f.outcome === "approved" ? "success" : "warning"}>
-                        {f.outcome === "approved" ? "Approved" : f.outcome === "skipped" ? "Skipped" : "Adjustments"}
-                      </Tag>
+                      <span className="flex items-center gap-1">
+                        <Tag size="sm" variant={f.outcome === "approved" ? "success" : "warning"}>
+                          {f.outcome === "approved" ? "Approved" : f.outcome === "skipped" ? "Skipped" : "Adjustments"}
+                        </Tag>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="-mr-2 size-9 text-text-tertiary hover:text-danger"
+                          aria-label={`Delete fitting ${f.number}`}
+                          onClick={() => setDeletingFitting(f)}
+                        >
+                          <Trash2 size={17} />
+                        </Button>
+                      </span>
                     }
                   >
                     {f.adjustments.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         {f.adjustments.map(a => (
-                          <Tag key={a.fieldKey} size="sm" variant="beige" className="tabular">
+                          <Tag key={a.fieldKey} size="sm" variant="beige" className="tabular gap-1">
+                            <MeasurementIcon fieldKey={a.fieldKey} label={a.label} size={16} />
                             {a.label} {a.rawDelta}
                           </Tag>
                         ))}
@@ -390,9 +485,58 @@ export default function OrderDetailPage() {
         </div>
       </BottomSheet>
 
+      <Dialog open={!!deletingFitting} onOpenChange={o => !o && !deleteBusy && setDeletingFitting(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete fitting {deletingFitting?.number}?</DialogTitle>
+            <DialogDescription>
+              Its outcome, notes and adjustments will be removed. Later fittings are renumbered. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeletingFitting(null)} disabled={deleteBusy}>
+              Keep
+            </Button>
+            <Button
+              variant="destructive-filled"
+              loading={deleteBusy}
+              onClick={async () => {
+                if (!deletingFitting) return;
+                const target = deletingFitting;
+                setDeleteBusy(true);
+                try {
+                  await orderRepo.deleteFitting(order.id, target.id);
+                  setOrder(o =>
+                    o
+                      ? {
+                          ...o,
+                          fittings: o.fittings
+                            .filter(x => x.id !== target.id)
+                            .map(x => (x.number > target.number ? { ...x, number: x.number - 1 } : x)),
+                        }
+                      : (o ?? null)
+                  );
+                  toast.success(`Fitting ${target.number} deleted`);
+                  setDeletingFitting(null);
+                  refreshOrder();
+                } catch {
+                  toast.error("Couldn't delete this fitting");
+                } finally {
+                  setDeleteBusy(false);
+                }
+              }}
+            >
+              <Trash2 />
+              Delete fitting
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <OrderMaterials
         order={order}
         onOrder={setOrder}
+        addKind={addKind}
         addOpen={addPhotoOpen}
         onAddOpenChange={setAddPhotoOpen}
         viewerIndex={viewerIndex}
@@ -416,6 +560,7 @@ export default function OrderDetailPage() {
 function OrderMaterials({
   order,
   onOrder,
+  addKind,
   addOpen,
   onAddOpenChange,
   viewerIndex,
@@ -423,6 +568,7 @@ function OrderMaterials({
 }: {
   order: Order;
   onOrder: (o: Order) => void;
+  addKind: MaterialKind;
   addOpen: boolean;
   onAddOpenChange: (o: boolean) => void;
   viewerIndex: number | null;
@@ -431,7 +577,7 @@ function OrderMaterials({
   const { busy, add, remove, makeCover } = useOrderMaterials(order, onOrder);
   return (
     <>
-      <AddMaterialSheet open={addOpen} onOpenChange={onAddOpenChange} onPick={add} busy={busy} />
+      <AddMaterialSheet open={addOpen} onOpenChange={onAddOpenChange} onPick={add} busy={busy} initialKind={addKind} />
       <MaterialViewer order={order} index={viewerIndex} onIndex={onViewerIndex} onRemove={remove} onCover={makeCover} busy={busy} />
     </>
   );

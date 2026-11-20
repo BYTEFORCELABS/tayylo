@@ -7,6 +7,7 @@ import { SegmentedControl } from "@/components/ui/choice";
 import { ListSkeleton, ErrorState } from "@/components/ui/states";
 import { useTemplates } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+import { MeasurementIcon } from "@/components/brand/measurement-icon";
 
 export function TemplatesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
@@ -85,7 +86,8 @@ function TemplatesBody() {
                               .filter(f => f.group === g)
                               .sort((a, b) => a.sortOrder - b.sortOrder)
                               .map(f => (
-                                <span key={f.id} className="rounded-full bg-surface-raised px-2.5 py-1 text-caption font-medium text-text-secondary border border-border">
+                                <span key={f.id} className="inline-flex items-center gap-1 rounded-full bg-surface-raised py-0.5 pl-1 pr-2.5 text-caption font-medium text-text-secondary border border-border">
+                                  <MeasurementIcon fieldKey={f.key} label={f.label} templateName={t.name} size={22} />
                                   {f.label}
                                 </span>
                               ))}

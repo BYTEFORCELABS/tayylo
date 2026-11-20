@@ -6,6 +6,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { DeltaChip } from "./tag";
+import { MeasurementIcon } from "@/components/brand/measurement-icon";
 
 // ------------------------------------------------------- Hero value
 
@@ -43,6 +44,8 @@ MeasurementDisplay.displayName = "MeasurementDisplay";
 
 interface MeasurementCellProps {
   label: string;
+  /** Template field key; shows the body-part illustration. */
+  fieldKey?: string;
   value: string;
   unit: string;
   delta?: { label: string; direction: "up" | "down" };
@@ -53,7 +56,7 @@ interface MeasurementCellProps {
 }
 
 /** Compact tile used in grids (capture overview). */
-const MeasurementCell: React.FC<MeasurementCellProps> = ({ label, value, unit, delta, active, empty, onClick, className }) => {
+const MeasurementCell: React.FC<MeasurementCellProps> = ({ label, fieldKey, value, unit, delta, active, empty, onClick, className }) => {
   const Comp = onClick ? "button" : "div";
   return (
     <Comp
@@ -66,7 +69,10 @@ const MeasurementCell: React.FC<MeasurementCellProps> = ({ label, value, unit, d
         className
       )}
     >
-      <span className="truncate text-caption font-medium text-text-tertiary">{label}</span>
+      <span className="flex items-center gap-1.5">
+        {fieldKey !== undefined && <MeasurementIcon fieldKey={fieldKey} label={label} size={22} />}
+        <span className="truncate text-caption font-medium text-text-tertiary">{label}</span>
+      </span>
       <div className="flex items-baseline gap-1">
         <span className={cn("measurement-value text-[22px] font-semibold leading-none", empty ? "text-border-strong" : "text-ink")}>
           {empty ? "—" : value}
@@ -109,7 +115,20 @@ export interface MeasurementRow {
  * Spec-sheet layout: rows grouped by body area, label on the left,
  * aligned value on the right. Reads like a tailor's measurement card.
  */
-function MeasurementSheet({ rows, className, compareLabel }: { rows: MeasurementRow[]; className?: string; compareLabel?: string }) {
+function MeasurementSheet({
+  rows,
+  className,
+  compareLabel,
+  templateName,
+  icons = true,
+}: {
+  rows: MeasurementRow[];
+  className?: string;
+  compareLabel?: string;
+  templateName?: string;
+  /** Show the body-part illustration beside each label. */
+  icons?: boolean;
+}) {
   const groups = React.useMemo(() => {
     const map = new Map<string, MeasurementRow[]>();
     for (const r of rows) {
@@ -134,7 +153,8 @@ function MeasurementSheet({ rows, className, compareLabel }: { rows: Measurement
           )}
           <dl className="divide-y divide-divider">
             {items.map(r => (
-              <div key={r.key} className="flex items-center gap-3 px-4 py-3">
+              <div key={r.key} className="flex items-center gap-3 px-4 py-2.5">
+                {icons && <MeasurementIcon fieldKey={r.key} label={r.label} templateName={templateName} size={30} tile />}
                 <dt className="min-w-0 flex-1 truncate text-[15px] text-text-secondary">{r.label}</dt>
                 {r.delta && <DeltaChip label={r.delta.label} direction={r.delta.direction} />}
                 {r.compare !== undefined && (

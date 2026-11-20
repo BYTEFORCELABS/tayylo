@@ -23,6 +23,20 @@ export async function requireUserId(): Promise<string> {
   return session.user.id;
 }
 
+/** Signed-in user plus role. Role comes from the session token. */
+export async function requireUser(): Promise<{ userId: string; role: "tailor" | "customer" }> {
+  const session = await auth();
+  if (!session?.user?.id) throw new ApiError(401, "Not signed in");
+  return { userId: session.user.id, role: session.user.role === "customer" ? "customer" : "tailor" };
+}
+
+/** Tailor-only actions (invoices, receipts, orders, clients, posting styles…). */
+export async function requireTailorId(): Promise<string> {
+  const { userId, role } = await requireUser();
+  if (role !== "tailor") throw new ApiError(403, "This is only available to tailors");
+  return userId;
+}
+
 /**
  * Loads the signed-in user's business. Every business-scoped query MUST be
  * filtered by this id (e.g. `where: { businessId: business.id }`), and every
@@ -58,7 +72,7 @@ export function forgetBusiness(userId: string) {
 
 /** Convenience: session + business in one call, for the common case. */
 export async function requireUserAndBusiness() {
-  const userId = await requireUserId();
+  const userId = await requireTailorId();
   const business = await requireBusiness(userId);
   return { userId, business };
 }

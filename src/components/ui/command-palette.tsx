@@ -10,7 +10,7 @@ import {
   ShoppingBag,
   Ruler,
   Settings,
-  CalendarDays,
+  House,
   UserPlus,
   ClipboardList,
 } from "lucide-react";
@@ -149,8 +149,8 @@ function PaletteBody({ onOpenChange }: { onOpenChange: (open: boolean) => void }
               </Group>
 
               <Group heading="Go to">
-                <Item value="today dashboard home" onSelect={() => go("/today")} icon={<CalendarDays size={18} strokeWidth={1.75} />}>
-                  Today
+                <Item value="home today dashboard" onSelect={() => go("/today")} icon={<House size={18} strokeWidth={1.75} />}>
+                  Home
                 </Item>
                 <Item value="clients list" onSelect={() => go("/clients")} icon={<Users size={18} strokeWidth={1.75} />}>
                   Clients

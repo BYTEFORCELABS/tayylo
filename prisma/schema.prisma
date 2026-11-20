@@ -20,10 +20,14 @@ model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
+  // "tailor" (full workspace) | "customer" (browse Explore, view own documents)
+  role         String   @default("tailor")
   createdAt    DateTime @default(now())
 
   business            Business?
   passwordResetTokens PasswordResetToken[]
+  stylePosts          StylePost[]
+  savedPosts          SavedPost[]
 }
 
 model PasswordResetToken {
@@ -243,4 +247,39 @@ model FittingAdjustment {
   rawDelta  String
 
   @@index([fittingId])
+}
+
+// ---- explore (shared style inspiration between tailors) ----
+
+model StylePost {
+  id         String   @id @default(uuid())
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorName String // studio name at time of posting
+  country    String
+  category   String
+  caption    String?
+  tags       String[] @default([])
+  imageUrl   String
+  width      Int?
+  height     Int?
+  createdAt  DateTime @default(now())
+
+  saves SavedPost[]
+
+  @@index([createdAt])
+  @@index([country])
+  @@index([category])
+  @@index([authorId])
+}
+
+model SavedPost {
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      StylePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@id([userId, postId])
+  @@index([postId])
 }

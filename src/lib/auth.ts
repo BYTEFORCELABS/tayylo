@@ -10,6 +10,7 @@ declare module "next-auth" {
     user: {
       id: string;
       email: string;
+      role: "tailor" | "customer";
       name?: string | null;
       image?: string | null;
     };
@@ -39,7 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, email: user.email };
+        return { id: user.id, email: user.email, role: user.role };
       },
     }),
     // Inert until real provider credentials are added to .env.local — clicking
@@ -56,11 +57,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     jwt({ token, user }) {
-      if (user) token.id = user.id;
+      if (user) {
+        token.id = user.id;
+        token.role = (user as { role?: string }).role === "customer" ? "customer" : "tailor";
+      }
       return token;
     },
     session({ session, token }) {
-      if (session.user) session.user.id = token.id as string;
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role === "customer" ? "customer" : "tailor";
+      }
       return session;
     },
   },

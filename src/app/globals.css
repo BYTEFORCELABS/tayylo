@@ -290,3 +290,48 @@ button:disabled {
 [data-vaul-overlay] {
   transition: opacity var(--duration-slow) var(--ease-out);
 }
+
+/* Invoices and receipts print on plain white paper without the app chrome. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+}
+
+/* Stitch loader — a needle pulls thread across the button while signing in */
+@keyframes stitch-travel {
+  0% { left: 0%; }
+  100% { left: 100%; }
+}
+@keyframes stitch-bob {
+  0%, 100% { transform: translate(-50%, -50%) rotate(-35deg); }
+  50% { transform: translate(-50%, calc(-50% + 5px)) rotate(35deg); }
+}
+@keyframes stitch-thread {
+  0% { width: 0%; opacity: 1; }
+  85% { width: 100%; opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}
+.stitch-track { position: relative; height: 12px; width: 100%; }
+.stitch-thread {
+  position: absolute; left: 0; top: 50%; height: 0; border-top: 2px dashed currentColor;
+  transform: translateY(-50%); animation: stitch-thread 1.8s linear infinite;
+}
+.stitch-needle {
+  position: absolute; top: 50%; left: 0; animation: stitch-travel 1.8s linear infinite;
+}
+.stitch-needle > svg { animation: stitch-bob 0.45s ease-in-out infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) {
+  .stitch-thread, .stitch-needle, .stitch-needle > svg { animation-duration: 4s; }
+}

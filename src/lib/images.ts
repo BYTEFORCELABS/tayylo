@@ -58,3 +58,26 @@ export async function makeThumbnail(src: string, size = 240): Promise<string> {
   const img = await loadImage(src);
   return draw(img, size, 0.78, true);
 }
+
+/** Photo → JPEG blob (longest side ≤ maxSide) with its pixel size, for uploads. */
+export async function preparePhoto(
+  file: File,
+  maxSide = 1600,
+  quality = 0.84
+): Promise<{ blob: Blob; width: number; height: number; previewUrl: string }> {
+  if (!file.type.startsWith("image/")) throw new Error("Choose an image file");
+  const img = await loadImage(await readFile(file));
+  const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+  const width = Math.round(img.naturalWidth * scale);
+  const height = Math.round(img.naturalHeight * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Image processing isn't available in this browser");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, width, height);
+  const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, "image/jpeg", quality));
+  if (!blob) throw new Error("Couldn't prepare this photo");
+  return { blob, width, height, previewUrl: URL.createObjectURL(blob) };
+}

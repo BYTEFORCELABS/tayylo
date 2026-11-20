@@ -17,7 +17,7 @@ const slides: Slide[] = [
   {
     image: "/pictures/tailorwithtablet.jpg",
     headline: "Find any client in two seconds",
-    caption: "Every measurement, order and fitting note — searchable the moment they call.",
+    caption: "Every measurement, order and fitting note searchable the moment they call.",
   },
   {
     image: "/pictures/tailorpic2.jpg",

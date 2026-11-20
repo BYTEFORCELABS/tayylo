@@ -6,11 +6,12 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Camera, ImagePlus, Plus, Star, Trash2, ChevronLeft, ChevronRight, X, Check } from "lucide-react";
+import { Camera, ImagePlus, Plus, Star, Trash2, ChevronLeft, ChevronRight, X, Check, Sparkles } from "lucide-react";
 import { GarmentIcon } from "@/components/brand/garment-icon";
 import { toast } from "sonner";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Avatar } from "@/components/ui/avatar";
+import { StitchLoader } from "@/components/auth/stitch-loader";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
@@ -211,6 +212,11 @@ export function MaterialStrip({ order, onAdd, onOpen }: { order: Order; onAdd: (
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- user photos / local swatches */}
             <img src={m.url} alt="" className="size-full object-cover" />
+            {parseCaption(m.caption).kind !== "Fabric" && (
+              <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-white">
+                {parseCaption(m.caption).kind}
+              </span>
+            )}
           </motion.button>
         ))}
       </AnimatePresence>
@@ -227,31 +233,125 @@ export function MaterialStrip({ order, onAdd, onOpen }: { order: Order; onAdd: (
   );
 }
 
+// ---------------------------------------------------------- style gallery
+
+/** The looks the client asked for, kept with the order for review at fittings. */
+export function StyleGallery({ order, onAdd, onOpen }: { order: Order; onAdd: () => void; onOpen: (i: number) => void }) {
+  const media = order.media ?? [];
+  const styles = media.map((m, i) => ({ m, i })).filter(x => parseCaption(x.m.caption).kind === "Style");
+
+  if (order.media === undefined) {
+    return <div className="skeleton h-28 rounded-[var(--radius-card)]" />;
+  }
+
+  if (styles.length === 0) {
+    return (
+      <button
+        type="button"
+        onClick={onAdd}
+        className="flex w-full items-center gap-4 rounded-[var(--radius-card)] border border-dashed border-border-strong bg-surface px-4 py-4 text-left transition-colors hover:border-ink"
+      >
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-surface-sunken text-ink">
+          <Sparkles size={20} strokeWidth={1.75} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-semibold text-ink">Add the style the client wants</span>
+          <span className="block text-label text-text-tertiary">Screenshots, magazine pages or sketches, kept with this order.</span>
+        </span>
+        <Plus size={20} strokeWidth={1.75} className="text-text-tertiary" />
+      </button>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      <AnimatePresence initial={false}>
+        {styles.map(({ m, i }) => {
+          const { detail } = parseCaption(m.caption);
+          return (
+            <motion.button
+              key={m.id}
+              layout
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              type="button"
+              onClick={() => onOpen(i)}
+              aria-label={`Open style photo${detail ? `: ${detail}` : ""}`}
+              className="group relative aspect-[3/4] overflow-hidden rounded-[var(--radius-control)] bg-surface-sunken text-left"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- user photos */}
+              <img src={m.url} alt="" className="size-full object-cover transition-transform duration-[var(--duration-normal)] group-hover:scale-[1.03]" />
+              {detail && (
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pt-6 pb-1.5 text-[11px] font-medium leading-tight text-white line-clamp-2">
+                  {detail}
+                </span>
+              )}
+            </motion.button>
+          );
+        })}
+      </AnimatePresence>
+      <button
+        type="button"
+        onClick={onAdd}
+        aria-label="Add style photo"
+        className="flex aspect-[3/4] flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] border border-dashed border-border-strong text-text-tertiary transition-colors hover:border-ink hover:text-ink"
+      >
+        <Plus size={20} strokeWidth={2} />
+        <span className="text-caption font-semibold">Add style</span>
+      </button>
+    </div>
+  );
+}
+
 // ------------------------------------------------------------- add sheet
 
 interface AddSheetProps {
   open: boolean;
+  /** Which kind of photo the sheet starts on. */
+  initialKind?: MaterialKind;
   onOpenChange: (open: boolean) => void;
   /** Receives a ready-to-store image URL and caption. */
   onPick: (url: string, caption: string) => void | Promise<void>;
   busy?: boolean;
 }
 
-export function AddMaterialSheet({ open, onOpenChange, onPick, busy }: AddSheetProps) {
+export function AddMaterialSheet({ open, onOpenChange, onPick, busy, initialKind = "Fabric" }: AddSheetProps) {
+  const style = initialKind === "Style";
   return (
     <BottomSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="Add a photo"
-      description="Snap the client's fabric, or pick the closest swatch from the library."
+      title={style ? "Add a style photo" : "Add a photo"}
+      description={
+        style
+          ? "Save the look the client wants (a screenshot, magazine page or sketch) so you can check the finished garment against it."
+          : "Snap the client's fabric, or pick the closest swatch from the library."
+      }
     >
-      <AddMaterialBody key={open ? "open" : "closed"} onPick={onPick} busy={busy} onDone={() => onOpenChange(false)} />
+      <AddMaterialBody
+        key={open ? `open-${initialKind}` : "closed"}
+        initialKind={initialKind}
+        onPick={onPick}
+        busy={busy}
+        onDone={() => onOpenChange(false)}
+      />
     </BottomSheet>
   );
 }
 
-function AddMaterialBody({ onPick, busy, onDone }: { onPick: AddSheetProps["onPick"]; busy?: boolean; onDone: () => void }) {
-  const [kind, setKind] = React.useState<MaterialKind>("Fabric");
+function AddMaterialBody({
+  onPick,
+  busy,
+  onDone,
+  initialKind,
+}: {
+  onPick: AddSheetProps["onPick"];
+  busy?: boolean;
+  onDone: () => void;
+  initialKind: MaterialKind;
+}) {
+  const [kind, setKind] = React.useState<MaterialKind>(initialKind);
   const [note, setNote] = React.useState("");
   const [working, setWorking] = React.useState(false);
   const cameraRef = React.useRef<HTMLInputElement>(null);
@@ -286,7 +386,7 @@ function AddMaterialBody({ onPick, busy, onDone }: { onPick: AddSheetProps["onPi
   const disabled = working || busy;
 
   return (
-    <div className="space-y-5">
+    <div className="relative space-y-5" aria-busy={disabled || undefined}>
       <SegmentedControl
         ariaLabel="Photo type"
         block
@@ -299,7 +399,7 @@ function AddMaterialBody({ onPick, busy, onDone }: { onPick: AddSheetProps["onPi
         hint="Optional"
         value={note}
         onChange={e => setNote(e.target.value)}
-        placeholder={kind === "Fabric" ? "e.g. 6 yards, brought by client" : kind === "Style" ? "e.g. Neckline from photo" : "e.g. After 1st fitting"}
+        placeholder={kind === "Fabric" ? "e.g. 6 yards, brought by client" : kind === "Style" ? "e.g. Copy the neckline and sleeves" : "e.g. After 1st fitting"}
       />
 
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={fromFile} />
@@ -368,11 +468,16 @@ function AddMaterialBody({ onPick, busy, onDone }: { onPick: AddSheetProps["onPi
         </div>
       )}
 
+      {/* Clear "something is happening" state: covers the sheet while the photo uploads. */}
       {disabled && (
-        <p role="status" className="flex items-center justify-center gap-2 text-label text-text-secondary">
-          <span className="size-4 animate-spin rounded-full border-2 border-ink border-r-transparent" />
-          Saving photo…
-        </p>
+        <div className="absolute inset-0 z-10 rounded-[var(--radius-card)] bg-surface-raised/90 backdrop-blur-sm animate-fade-in">
+          <div className="sticky top-24 flex flex-col items-center gap-2 px-6 pt-24 text-center text-olive">
+            <div className="w-56">
+              <StitchLoader label={kind === "Style" ? "Adding your style" : kind === "Fabric" ? "Adding your fabric" : "Adding your photo"} />
+            </div>
+            <p className="text-label text-text-secondary">This only takes a moment — please keep this open.</p>
+          </div>
+        </div>
       )}
     </div>
   );

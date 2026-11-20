@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { CalendarDays, Users, Plus, ShoppingBag, Settings, Search, type LucideIcon } from "lucide-react";
+import { House, Users, Plus, ShoppingBag, Settings, Search, Compass, UserRound, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
@@ -16,42 +16,57 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-export const NAV_ITEMS: NavItem[] = [
-  { key: "today", label: "Today", href: "/today", icon: CalendarDays },
+export const TAILOR_NAV: NavItem[] = [
+  { key: "today", label: "Home", href: "/today", icon: House },
   { key: "clients", label: "Clients", href: "/clients", icon: Users },
   { key: "orders", label: "Orders", href: "/orders", icon: ShoppingBag },
+  { key: "explore", label: "Explore", href: "/explore", icon: Compass },
   { key: "settings", label: "Settings", href: "/settings", icon: Settings },
 ];
 
+/** Customers only get inspiration and their account — no business tools. */
+export const CUSTOMER_NAV: NavItem[] = [
+  { key: "explore", label: "Explore", href: "/explore", icon: Compass },
+  { key: "account", label: "Account", href: "/account", icon: UserRound },
+];
+
+export const NAV_ITEMS = TAILOR_NAV;
+
 export function activeNavKey(pathname: string) {
-  return NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + "/"))?.key;
+  return [...TAILOR_NAV, ...CUSTOMER_NAV].find(i => pathname === i.href || pathname.startsWith(i.href + "/"))?.key;
 }
 
 // ---------------------------------------------------------- Mobile: floating bar
 
 interface FloatingNavProps {
   active?: string;
-  onCreate: () => void;
+  /** Omit for roles that can't create (customers): the bar becomes a plain tab bar. */
+  onCreate?: () => void;
+  items?: NavItem[];
 }
 
 /**
  * Floating, rounded tab bar with a raised centre action. Sits above the
  * home indicator using the safe-area inset; content reserves `pb-nav`.
  */
-export function FloatingNav({ active, onCreate }: FloatingNavProps) {
-  const left = NAV_ITEMS.slice(0, 2);
-  const right = NAV_ITEMS.slice(2);
+// Explore sits in the top bar for tailors (and the sidebar on desktop), keeping the tab bar light.
+const TAILOR_TABS = TAILOR_NAV.filter(i => i.key !== "explore");
+
+export function FloatingNav({ active, onCreate, items = TAILOR_TABS }: FloatingNavProps) {
+  const left = onCreate ? items.slice(0, 2) : items;
+  const right = onCreate ? items.slice(2) : [];
 
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden pointer-events-none"
+      className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden pointer-events-none print:hidden"
     >
       <div className="pointer-events-auto relative mx-auto flex h-[68px] max-w-md items-center rounded-full border border-border/80 bg-surface-raised/95 px-2 shadow-[var(--shadow-float)] backdrop-blur-xl">
         {left.map(item => (
           <TabButton key={item.key} item={item} active={active === item.key} />
         ))}
 
+        {onCreate && (
         <div className="flex w-[72px] shrink-0 justify-center">
           <motion.button
             type="button"
@@ -63,6 +78,7 @@ export function FloatingNav({ active, onCreate }: FloatingNavProps) {
             <Plus size={26} strokeWidth={2} />
           </motion.button>
         </div>
+        )}
 
         {right.map(item => (
           <TabButton key={item.key} item={item} active={active === item.key} />
@@ -101,15 +117,16 @@ function TabButton({ item, active }: { item: NavItem; active: boolean }) {
 
 interface SidebarProps {
   active?: string;
-  onCreate: () => void;
-  onSearch: () => void;
+  onCreate?: () => void;
+  onSearch?: () => void;
+  items?: NavItem[];
   businessName?: string;
   ownerName?: string;
 }
 
-export function Sidebar({ active, onCreate, onSearch, businessName, ownerName }: SidebarProps) {
+export function Sidebar({ active, onCreate, onSearch, items = TAILOR_NAV, businessName, ownerName }: SidebarProps) {
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border/70 bg-surface lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border/70 bg-surface lg:flex print:hidden">
       <div className="px-6 pt-7 pb-6">
         <Link href="/today" aria-label="Tayylo home">
           <Logo height={26} priority />
@@ -117,10 +134,13 @@ export function Sidebar({ active, onCreate, onSearch, businessName, ownerName }:
       </div>
 
       <div className="space-y-2 px-4">
+        {onCreate && (
         <Button block onClick={onCreate} className="justify-start pl-4">
           <Plus />
           Create
         </Button>
+        )}
+        {onSearch && (
         <button
           type="button"
           onClick={onSearch}
@@ -130,10 +150,11 @@ export function Sidebar({ active, onCreate, onSearch, businessName, ownerName }:
           <span>Search</span>
           <kbd className="ml-auto rounded-[var(--radius-xs)] bg-surface-raised px-1.5 py-0.5 text-[11px] font-semibold">⌘K</kbd>
         </button>
+        )}
       </div>
 
       <nav aria-label="Main" className="mt-6 flex-1 space-y-1 px-4">
-        {NAV_ITEMS.map(item => {
+        {items.map(item => {
           const Icon = item.icon;
           const isActive = active === item.key;
           return (

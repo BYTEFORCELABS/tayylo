@@ -8,9 +8,9 @@ import { IconTile } from "@/components/ui/list";
 import { CommandPalette, useCommandPalette } from "@/components/ui/command-palette";
 import { OfflineBanner, ErrorState } from "@/components/ui/states";
 import { BrandLoader } from "@/components/brand/brand-loader";
-import { FloatingNav, Sidebar, activeNavKey } from "@/components/shell/navigation";
+import { FloatingNav, Sidebar, activeNavKey, CUSTOMER_NAV } from "@/components/shell/navigation";
 import { ShellContext } from "@/components/shell/shell-context";
-import { useBusiness } from "@/lib/use-business";
+import { useBusiness, useMe } from "@/lib/use-business";
 import { ApiRequestError } from "@/lib/data/store";
 import { prefetchWorkspace } from "@/lib/queries";
 
@@ -40,7 +40,8 @@ function isTaskRoute(pathname: string) {
   return (
     pathname.startsWith("/measure") ||
     pathname.startsWith("/orders/new") ||
-    /^\/clients\/[^/]+\/edit/.test(pathname)
+    /^\/clients\/[^/]+\/edit/.test(pathname) ||
+    /^\/orders\/[^/]+\/(invoice|receipt)/.test(pathname)
   );
 }
 
@@ -51,36 +52,44 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // whether the user is signed in (401) or still needs onboarding (null).
   // Orders and clients start loading in parallel with it.
   const { business, status, error, refresh } = useBusiness();
+  const { role, error: meError } = useMe();
+  const customer = role === "customer";
+  const customerHome = pathname.startsWith("/explore") || pathname.startsWith("/account");
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const { open: searchOpen, setOpen: setSearchOpen } = useCommandPalette();
-  const signedOut = error instanceof ApiRequestError && error.status === 401;
+  const signedOut =
+    (error instanceof ApiRequestError && error.status === 401) ||
+    (meError instanceof ApiRequestError && meError.status === 401);
 
   React.useEffect(() => {
-    prefetchWorkspace();
-  }, []);
+    if (role === "tailor") prefetchWorkspace();
+  }, [role]);
 
   // Once the workspace is open, load the code for the main tabs and create
   // flows in the background so switching to them never waits on the network.
   React.useEffect(() => {
-    if (!business) return;
+    if (!business || role !== "tailor") return;
     const warm = () =>
       ["/today", "/clients", "/orders", "/settings", "/measure", "/orders/new"].forEach(r => router.prefetch(r));
     const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
     if (w.requestIdleCallback) w.requestIdleCallback(warm);
     else setTimeout(warm, 300);
-  }, [business, router]);
+  }, [business, role, router]);
 
   React.useEffect(() => {
     if (signedOut) router.replace("/welcome");
-    else if (status === "ready" && !business) router.replace("/onboarding");
-  }, [signedOut, status, business, router]);
+    else if (customer) {
+      // Customers never see tailor tools: keep them on Explore / Account.
+      if (!customerHome) router.replace("/explore");
+    } else if (role === "tailor" && status === "ready" && !business) router.replace("/onboarding");
+  }, [signedOut, status, business, router, customer, customerHome, role]);
 
   const shell = React.useMemo(
     () => ({ openSearch: () => setSearchOpen(true), openQuickAdd: () => setSheetOpen(true), hasSidebar: true }),
     [setSearchOpen]
   );
 
-  if (status === "error" && !signedOut) {
+  if (status === "error" && !signedOut && !customer) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-canvas">
         <ErrorState
@@ -92,7 +101,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!business) {
+  // Customer workspace: Explore + Account only. No orders, invoices or clients.
+  if (customer) {
+    if (!customerHome) return <BrandLoader label="Opening Explore" />;
+    return (
+      <ShellContext.Provider value={shell}>
+        <div className="min-h-[100dvh] bg-canvas">
+          <Sidebar active={activeNavKey(pathname)} items={CUSTOMER_NAV} />
+          <main className="pb-nav lg:pl-64 lg:pb-12 print:p-0">
+            <div key={pathname} className="animate-fade-in">
+              {children}
+            </div>
+          </main>
+          <FloatingNav active={activeNavKey(pathname)} items={CUSTOMER_NAV} />
+          <OfflineBanner />
+        </div>
+      </ShellContext.Provider>
+    );
+  }
+
+  if (!business || !role) {
     return <BrandLoader label="Opening your workspace" />;
   }
 
@@ -110,7 +138,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ownerName={business.ownerName}
         />
 
-        <main className={task ? "lg:pl-64" : "pb-nav lg:pl-64 lg:pb-12"}>
+        <main className={task ? "lg:pl-64 print:p-0" : "pb-nav lg:pl-64 lg:pb-12 print:p-0"}>
           <div key={pathname} className="animate-fade-in">
             {children}
           </div>

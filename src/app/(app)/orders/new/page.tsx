@@ -2,7 +2,7 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Camera, X } from "lucide-react";
+import { Check, Camera, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,13 +12,15 @@ import { PageBody, PageHeader, Overline } from "@/components/ui/page";
 import { ClientPicker } from "@/components/client-picker";
 import { customerRepo, measurementRepo, orderRepo } from "@/lib/data/store";
 import { getQueryData } from "@/lib/query";
-import { qk, useCustomers } from "@/lib/queries";
+import { qk, useCustomers, useOrders } from "@/lib/queries";
+import { Calendar, addDaysISO, fromLocalISO, toLocalISO } from "@/components/ui/calendar";
+import { isActive } from "@/lib/orders";
 import { useBusiness } from "@/lib/use-business";
-import { currencySymbol, formatDate, formatMoney } from "@/lib/format";
+import { currencySymbol, daysUntil, formatMoney } from "@/lib/format";
 import { PAYMENT_METHODS } from "@/lib/orders";
 import { AddMaterialSheet } from "@/components/order/materials";
 import { makeThumbnail } from "@/lib/images";
-import { parseCaption } from "@/lib/fabrics";
+import { parseCaption, type MaterialKind } from "@/lib/fabrics";
 import { GarmentPicker } from "@/components/garment-picker";
 import { GarmentIcon } from "@/components/brand/garment-icon";
 import type { Customer } from "@/types";
@@ -35,17 +37,14 @@ function newOrderMeta(dueDate: string) {
   const now = Date.now();
   return {
     number: String(1010 + Math.floor(Math.random() * 90)),
-    dueAt: dueDate ? new Date(dueDate).toISOString() : new Date(now + 14 * 86400000).toISOString(),
+    dueAt: (dueDate ? fromLocalISO(dueDate) : fromLocalISO(addDaysISO(14))).toISOString(),
     itemId: `oi-${now}`,
     paymentId: `pay-${now}`,
     paidAt: new Date(now).toISOString(),
   };
 }
 
-function isoDate(daysFromNow: number) {
-  const d = new Date(Date.now() + daysFromNow * 86400000);
-  return d.toISOString().slice(0, 10);
-}
+const isoDate = (daysFromNow: number) => addDaysISO(daysFromNow);
 
 function NewOrderPageInner() {
   const router = useRouter();
@@ -58,6 +57,17 @@ function NewOrderPageInner() {
   const clientsQ = useCustomers();
   const clients = clientsQ.data ?? [];
   const clientsLoading = !clientsQ.data;
+  const ordersQ = useOrders();
+  // Orders already due on each day, so the calendar can show busy days.
+  const dueMarkers = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const o of ordersQ.data ?? []) {
+      if (!isActive(o)) continue;
+      const k = toLocalISO(new Date(o.dueAt));
+      map[k] = (map[k] ?? 0) + 1;
+    }
+    return map;
+  }, [ordersQ.data]);
   const [client, setClient] = React.useState<Customer | null>(null);
   const [garment, setGarment] = React.useState("");
   const [customGarment, setCustomGarment] = React.useState("");
@@ -72,6 +82,11 @@ function NewOrderPageInner() {
   // Fabric / style photos picked before the order exists; uploaded after creation.
   const [photos, setPhotos] = React.useState<{ url: string; caption: string }[]>([]);
   const [photoSheet, setPhotoSheet] = React.useState(false);
+  const [photoKind, setPhotoKind] = React.useState<MaterialKind>("Fabric");
+  const openPhotos = (kind: MaterialKind) => {
+    setPhotoKind(kind);
+    setPhotoSheet(true);
+  };
 
   React.useEffect(() => {
     if (preselectedClientId) {
@@ -136,7 +151,10 @@ function NewOrderPageInner() {
           toast.error("Order created, but some photos didn't upload. Add them from the order.");
         }
       }
-      toast.success(`Order #${order.number} created`);
+      toast.success(`Order #${order.number} created — invoice ready`, {
+        action: { label: "View invoice", onClick: () => router.push(`/orders/${order.id}/invoice`) },
+        duration: 8000,
+      });
       router.push(`/orders/${order.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't create the order");
@@ -224,38 +242,59 @@ function NewOrderPageInner() {
           placeholder="Fabric, colour, lapel, buttons, lining…"
         />
 
-        <Overline className="mb-3 mt-8">Fabric</Overline>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-          {photos.map((p, i) => (
-            <div key={i} className="relative size-20 shrink-0 animate-scale-in">
-              {/* eslint-disable-next-line @next/next/no-img-element -- local preview */}
-              <img src={p.url} alt={p.caption} className="size-full rounded-[var(--radius-control)] object-cover" />
-              <button
-                type="button"
-                onClick={() => setPhotos(ps => ps.filter((_, j) => j !== i))}
-                aria-label="Remove photo"
-                className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-ink text-text-inverse shadow-[var(--shadow-xs)]"
-              >
-                <X size={13} strokeWidth={2.5} />
-              </button>
-            </div>
-          ))}
+        <Overline className="mb-3 mt-8">Fabric and style</Overline>
+        {photos.length > 0 && (
+          <div className="mb-3 flex gap-2 overflow-x-auto pb-1 pt-1.5 scrollbar-none">
+            {photos.map((p, i) => {
+              const kind = parseCaption(p.caption).kind;
+              return (
+                <div key={i} className="relative size-20 shrink-0 animate-scale-in">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- local preview */}
+                  <img src={p.url} alt={p.caption} className="size-full rounded-[var(--radius-control)] object-cover" />
+                  <span className="absolute inset-x-0 bottom-0 rounded-b-[var(--radius-control)] bg-black/55 py-0.5 text-center text-[9px] font-semibold uppercase tracking-wide text-white">
+                    {kind}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPhotos(ps => ps.filter((_, j) => j !== i))}
+                    aria-label="Remove photo"
+                    className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-ink text-text-inverse shadow-[var(--shadow-xs)]"
+                  >
+                    <X size={13} strokeWidth={2.5} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => setPhotoSheet(true)}
-            className={
-              photos.length
-                ? "flex size-20 shrink-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-control)] border border-dashed border-border-strong text-text-tertiary hover:border-ink hover:text-ink"
-                : "flex h-20 w-full items-center justify-center gap-2.5 rounded-[var(--radius-card)] border border-dashed border-border-strong text-label font-semibold text-text-secondary hover:border-ink hover:text-ink"
-            }
+            onClick={() => openPhotos("Fabric")}
+            className="flex flex-col items-start gap-2 rounded-[var(--radius-card)] border border-dashed border-border-strong px-4 py-3.5 text-left transition-colors hover:border-ink"
           >
-            <Camera size={20} strokeWidth={1.75} />
-            {photos.length ? <span className="text-[10px] font-semibold">Add</span> : "Photograph the client's fabric or pick a swatch"}
+            <Camera size={20} strokeWidth={1.75} className="text-ink" />
+            <span>
+              <span className="block text-label font-semibold text-ink">Add fabric</span>
+              <span className="block text-caption text-text-tertiary">Photo or swatch</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openPhotos("Style")}
+            className="flex flex-col items-start gap-2 rounded-[var(--radius-card)] border border-dashed border-border-strong px-4 py-3.5 text-left transition-colors hover:border-ink"
+          >
+            <Sparkles size={20} strokeWidth={1.75} className="text-ink" />
+            <span>
+              <span className="block text-label font-semibold text-ink">Add style</span>
+              <span className="block text-caption text-text-tertiary">The look they want</span>
+            </span>
           </button>
         </div>
         <AddMaterialSheet
           open={photoSheet}
           onOpenChange={setPhotoSheet}
+          initialKind={photoKind}
           onPick={(url, caption) => setPhotos(ps => [...ps, { url, caption }])}
         />
 
@@ -311,6 +350,22 @@ function NewOrderPageInner() {
         )}
 
         <Overline className="mb-3 mt-8">Delivery</Overline>
+        <div className="mb-3 flex items-end justify-between gap-3 px-1">
+          <div>
+            <p className="text-caption text-text-tertiary">Ready by</p>
+            <p className="text-[20px] font-semibold leading-tight tracking-tight text-ink">
+              {dueDate ? fromLocalISO(dueDate).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "long" }) : "Pick a date"}
+            </p>
+          </div>
+          {dueDate && (
+            <span className="tabular rounded-full bg-olive-soft px-2.5 py-1 text-caption font-semibold text-olive">
+              {(() => {
+                const d = daysUntil(fromLocalISO(dueDate));
+                return d <= 0 ? "Today" : d === 1 ? "Tomorrow" : `In ${d} days`;
+              })()}
+            </span>
+          )}
+        </div>
         <div className="mb-3 flex flex-wrap gap-2">
           {DUE_PRESETS.map(p => (
             <Chip key={p.label} size="sm" selected={dueDate === isoDate(p.days)} onClick={() => setDueDate(isoDate(p.days))}>
@@ -318,14 +373,14 @@ function NewOrderPageInner() {
             </Chip>
           ))}
         </div>
-        <Input
-          label="Due date"
-          type="date"
-          value={dueDate}
-          min={isoDate(0)}
-          onChange={e => setDueDate(e.target.value)}
-          helperText={dueDate ? `Ready by ${formatDate(dueDate)}` : "Defaults to two weeks from today"}
-        />
+        <Calendar value={dueDate} onChange={setDueDate} min={isoDate(0)} markers={dueMarkers} />
+        {dueMarkers[dueDate] ? (
+          <p className="mt-2 px-1 text-caption text-warning">
+            {dueMarkers[dueDate]} other order{dueMarkers[dueDate] > 1 ? "s are" : " is"} already due this day.
+          </p>
+        ) : (
+          <p className="mt-2 px-1 text-caption text-text-tertiary">Dots mark days that already have orders due.</p>
+        )}
         <Textarea
           containerClassName="mt-5"
           label="Order note"

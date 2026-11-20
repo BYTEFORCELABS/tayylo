@@ -105,7 +105,7 @@ export function MeasurementsTab({ clientId, measurements, templates, unit, onCha
             </span>
             {current.note && <p className="w-full text-label text-text-secondary">“{current.note}”</p>}
           </div>
-          <MeasurementSheet rows={rows} />
+          <MeasurementSheet rows={rows} templateName={current.templateName} />
           {previous && (
             <p className="mt-3 px-1 text-caption text-text-tertiary">
               Changes are compared with the {current.templateName.toLowerCase()} set from {formatDate(previous.takenAt)}.
@@ -207,7 +207,7 @@ function CompareDialog({
               : "This version on the right, today's current value in grey. Changes show how the current set differs."}
           </DialogDescription>
         </DialogHeader>
-        <MeasurementSheet rows={rows} compareLabel={isCurrent ? undefined : "Now"} className="md:grid-cols-1" />
+        <MeasurementSheet rows={rows} templateName={set?.templateName} compareLabel={isCurrent ? undefined : "Now"} className="md:grid-cols-1" />
         <DialogFooter>
           <Button variant="secondary" onClick={onClose}>
             Close

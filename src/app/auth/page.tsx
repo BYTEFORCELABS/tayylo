@@ -6,11 +6,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { Mail, Lock, Eye, EyeOff, MailCheck, AlertCircle } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { AuthLayout } from "@/components/auth/auth-layout";
+import { StitchLoader } from "@/components/auth/stitch-loader";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
 import { Input } from "@/components/ui/input";
 import { useBack } from "@/components/ui/page";
-import { businessRepo } from "@/lib/data/store";
+import { businessRepo, meRepo } from "@/lib/data/store";
 import { clearQueries } from "@/lib/query";
 import { setCachedBusiness } from "@/lib/use-business";
 
@@ -51,6 +52,7 @@ function AuthPageInner() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+  const [role, setRole] = React.useState<"tailor" | "customer">("tailor");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [touched, setTouched] = React.useState({ email: false, password: false });
@@ -81,7 +83,7 @@ function AuthPageInner() {
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password, role }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -98,6 +100,11 @@ function AuthPageInner() {
         return;
       }
       clearQueries();
+      const me = await meRepo.get();
+      if (me?.role === "customer") {
+        router.push("/explore");
+        return;
+      }
       const business = await businessRepo.get();
       setCachedBusiness(business);
       router.push(business ? "/today" : "/onboarding");
@@ -204,6 +211,26 @@ function AuthPageInner() {
               <p className="mt-2 text-body text-text-secondary">{copy[mode].subtitle}</p>
 
               <form onSubmit={mode === "reset" ? handleReset : handleSubmit} noValidate className="mt-8 space-y-5">
+                {mode === "signup" && (
+                  <div>
+                    <p className="mb-2 text-label font-semibold text-ink">I am a…</p>
+                    <SegmentedControl
+                      ariaLabel="Account type"
+                      block
+                      value={role}
+                      onChange={setRole}
+                      options={[
+                        { value: "tailor", label: "Tailor" },
+                        { value: "customer", label: "Customer" },
+                      ]}
+                    />
+                    <p className="mt-2 text-caption text-text-tertiary">
+                      {role === "tailor"
+                        ? "Manage clients, measurements, orders, invoices and receipts."
+                        : "Browse style inspiration and keep the looks you love."}
+                    </p>
+                  </div>
+                )}
                 {emailField}
 
                 {mode !== "reset" && (
@@ -245,8 +272,10 @@ function AuthPageInner() {
                   </div>
                 )}
 
-                <Button type="submit" size="lg" block loading={loading}>
-                  {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
+                <Button type="submit" size="lg" block disabled={loading} className="h-auto min-h-[52px] py-2 disabled:opacity-100" aria-busy={loading || undefined}>
+                  {loading ? (
+                    <StitchLoader label={mode === "signin" ? "Stitching you in" : mode === "signup" ? "Tailoring your account" : "Sending your link"} />
+                  ) : mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"}
                 </Button>
               </form>
 

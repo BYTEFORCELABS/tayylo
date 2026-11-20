@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
 import { Select, Textarea } from "@/components/ui/input";
 import { Tag } from "@/components/ui/tag";
+import { MeasurementIcon } from "@/components/brand/measurement-icon";
 import { orderRepo } from "@/lib/data/store";
 import { unitLabel } from "@/lib/format";
 import type { FittingAdjustment, UnitSystem } from "@/types";
@@ -114,7 +115,14 @@ function FittingForm({ onOpenChange, orderId, fittingNumber, unit, fieldOptions,
           {outcome === "adjustments_needed" && (
             <div className="rounded-[var(--radius-card)] bg-surface-sunken/60 p-4">
               <p className="mb-3 text-label font-semibold text-ink">Adjustments</p>
-              <div className="flex gap-2">
+              <div className="mb-2 flex items-center gap-2">
+                <MeasurementIcon
+                  fieldKey={fieldKey}
+                  label={fields.find(f => f.key === fieldKey)?.label}
+                  size={36}
+                  tile
+                  className="bg-surface-raised"
+                />
                 <Select
                   aria-label="Measurement"
                   containerClassName="flex-1 min-w-0"
@@ -127,9 +135,11 @@ function FittingForm({ onOpenChange, orderId, fittingNumber, unit, fieldOptions,
                     </option>
                   ))}
                 </Select>
+              </div>
+              <div className="flex gap-2">
                 <Select
                   aria-label={`Change in ${unitLabel(unit)}`}
-                  containerClassName="w-[112px] shrink-0"
+                  containerClassName="flex-1 min-w-0"
                   className="tabular"
                   value={String(delta)}
                   onChange={e => setDelta(parseFloat(e.target.value))}
@@ -150,10 +160,11 @@ function FittingForm({ onOpenChange, orderId, fittingNumber, unit, fieldOptions,
                     <Tag
                       key={a.fieldKey}
                       variant="olive"
-                      className="tabular"
+                      className="tabular gap-1"
                       removable
                       onRemove={() => setAdjustments(prev => prev.filter(x => x.fieldKey !== a.fieldKey))}
                     >
+                      <MeasurementIcon fieldKey={a.fieldKey} label={a.label} size={18} />
                       {a.label} {a.rawDelta}
                     </Tag>
                   ))}

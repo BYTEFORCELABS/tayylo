@@ -29,6 +29,8 @@ import { getQueryData } from "@/lib/query";
 import { qk, useCustomers, useTemplates } from "@/lib/queries";
 import { useBusiness } from "@/lib/use-business";
 import { GarmentIcon } from "@/components/brand/garment-icon";
+import { MeasurementFigure, MeasurementIcon, measurementMethod } from "@/components/brand/measurement-icon";
+import { inferBodySex } from "@/lib/measurement-art";
 import { formatDate, formatDelta, formatMeasurement, measurementDelta, parseMeasurement, unitLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Customer, MeasurementTemplate, MeasurementSet } from "@/types";
@@ -89,6 +91,7 @@ function MeasurePageInner() {
     [template]
   );
   const currentField = fields[fieldIndex];
+  const bodySex = React.useMemo(() => inferBodySex(fields.map(f => f.key), template?.name), [fields, template]);
   const currentValue = currentField ? values[currentField.key] || "" : "";
   const recordedCount = fields.filter(f => values[f.key]).length;
 
@@ -352,6 +355,7 @@ function MeasurePageInner() {
                     setFieldIndex(i);
                     setStep("capture");
                   }}
+                  leading={<MeasurementIcon fieldKey={f.key} label={f.label} templateName={template?.name} size={30} tile />}
                   title={<span className="font-medium text-text-secondary">{f.label}</span>}
                   subtitle={f.group}
                   trailing={
@@ -434,6 +438,7 @@ function MeasurePageInner() {
   const warning = currentField ? warningFor(currentField.key, currentValue) : undefined;
   const prevVal = currentField ? previousValue(currentField.key) : undefined;
   const nextField = fields[fieldIndex + 1];
+  const method = currentField ? measurementMethod({ key: currentField.key, label: currentField.label, templateName: template?.name }) : undefined;
 
   return (
     <div className="flex min-h-[100dvh] flex-col">
@@ -482,6 +487,7 @@ function MeasurePageInner() {
               <MeasurementCell
                 key={f.key}
                 label={f.label}
+                fieldKey={f.key}
                 value={values[f.key] || ""}
                 empty={!values[f.key]}
                 unit={u}
@@ -501,31 +507,45 @@ function MeasurePageInner() {
       ) : (
         <div className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 sm:px-6">
           {/* Field in focus */}
-          <div key={currentField?.key} className="flex flex-1 flex-col items-center justify-center py-6 text-center animate-fade-in">
-            <span className="rounded-full bg-surface-sunken px-3 py-1 text-overline uppercase text-text-secondary">
-              {currentField?.group} · {fieldIndex + 1}/{fields.length}
-            </span>
-            <h1 className="mt-4 text-title text-ink">{currentField?.label}</h1>
+          <div key={currentField?.key} className="flex flex-1 flex-col justify-center py-4 animate-fade-in">
+            <div className="flex items-center gap-4 sm:gap-6">
+              <MeasurementFigure
+                fieldKey={currentField?.key}
+                label={currentField?.label}
+                templateName={template?.name}
+                sex={bodySex}
+                height={196}
+                className="shrink-0 rounded-[var(--radius-card)] bg-surface px-3 pt-3 pb-2 border border-border/70"
+              />
+              <div className="flex min-w-0 flex-1 flex-col items-start">
+                <span className="rounded-full bg-surface-sunken px-3 py-1 text-overline uppercase text-text-secondary">
+                  {currentField?.group} · {fieldIndex + 1}/{fields.length}
+                </span>
+                <h1 className="mt-3 text-title text-ink">{currentField?.label}</h1>
 
-            <div className="mt-4 flex items-baseline gap-2" aria-live="polite" aria-label={`${currentValue || 0} ${u}`}>
-              <span
-                className={cn(
-                  "measurement-value text-[72px] font-semibold leading-none sm:text-[84px]",
-                  currentValue ? "text-ink" : "text-border-strong"
+                <div className="mt-2 flex items-baseline gap-2" aria-live="polite" aria-label={`${currentValue || 0} ${u}`}>
+                  <span
+                    className={cn(
+                      "measurement-value text-[60px] font-semibold leading-none sm:text-[76px]",
+                      currentValue ? "text-ink" : "text-border-strong"
+                    )}
+                  >
+                    {currentValue || "0"}
+                  </span>
+                  <span className="text-[18px] font-medium text-text-tertiary">{u}</span>
+                </div>
+
+                {prevVal && (
+                  <p className="mt-2 text-label text-text-tertiary">
+                    Last time <span className="tabular font-semibold text-text-secondary">{prevVal} {u}</span>
+                    {previousSet && <> · {formatDate(previousSet.takenAt, { year: false })}</>}
+                  </p>
                 )}
-              >
-                {currentValue || "0"}
-              </span>
-              <span className="text-[20px] font-medium text-text-tertiary">{u}</span>
+              </div>
             </div>
 
-            <div className="mt-4 flex min-h-7 flex-col items-center gap-2">
-              {prevVal && (
-                <p className="text-label text-text-tertiary">
-                  Last time <span className="tabular font-semibold text-text-secondary">{prevVal} {u}</span>
-                  {previousSet && <> · {formatDate(previousSet.takenAt, { year: false })}</>}
-                </p>
-              )}
+            <div className="mt-3 flex min-h-7 flex-col items-center gap-2 text-center">
+              {method && <p className="line-clamp-2 max-w-md text-caption text-text-tertiary">{method}</p>}
               {warning && (
                 <p role="alert" className="inline-flex items-center gap-1.5 rounded-full bg-warning-bg px-3 py-1.5 text-caption font-semibold text-warning animate-rise-in">
                   <AlertTriangle size={14} strokeWidth={2} />

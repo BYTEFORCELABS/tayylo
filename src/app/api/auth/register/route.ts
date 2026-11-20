@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 const bodySchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(6),
+  role: z.enum(["tailor", "customer"]).default("tailor"),
 });
 
 export async function POST(request: Request) {
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json({ error: "Enter a valid email and a password of at least 6 characters" }, { status: 400 });
   }
-  const { email, password } = parsed.data;
+  const { email, password, role } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await prisma.user.create({ data: { email, passwordHash } });
+  await prisma.user.create({ data: { email, passwordHash, role } });
 
   return Response.json({ ok: true });
 }

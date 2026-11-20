@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -38,6 +39,7 @@ export function RecordPaymentDialog({ order, onOpenChange, onRecorded }: RecordP
 }
 
 function PaymentForm({ order, onOpenChange, onRecorded }: RecordPaymentDialogProps & { order: Order }) {
+  const router = useRouter();
   const balance = balanceMinor(order);
   const currency = order.currency || "NGN";
   const [amount, setAmount] = React.useState(balance > 0 ? String(balance / 100) : "");
@@ -61,7 +63,15 @@ function PaymentForm({ order, onOpenChange, onRecorded }: RecordPaymentDialogPro
         reference: reference.trim() || undefined,
       });
       await onRecorded();
-      toast.success(`${formatMoney(amountMinor, currency)} recorded for ${order.customerName}`);
+      if (order.priceMinor > 0 && balance > 0 && amountMinor >= balance) {
+        // This payment settles the order: the receipt is now generated.
+        toast.success(`Paid in full — receipt ready for ${order.customerName}`, {
+          action: { label: "View receipt", onClick: () => router.push(`/orders/${order.id}/receipt`) },
+          duration: 8000,
+        });
+      } else {
+        toast.success(`${formatMoney(amountMinor, currency)} recorded for ${order.customerName}`);
+      }
       onOpenChange(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't save this payment");
