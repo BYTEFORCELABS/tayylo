@@ -144,7 +144,12 @@ export default function WelcomePage() {
               </Button>
             ) : (
               <div className="flex gap-2.5">
-                <Button size="lg" variant="ghost" onClick={() => goTo(slides.length - 1)}>
+                <Button
+                  size="lg"
+                  variant="ghost"
+                  className="flex-1 border-2 border-olive text-olive-deep hover:bg-olive-soft/60"
+                  onClick={() => goTo(slides.length - 1)}
+                >
                   Skip
                 </Button>
                 <Button size="lg" className="flex-1" onClick={() => goTo(index + 1)}>
