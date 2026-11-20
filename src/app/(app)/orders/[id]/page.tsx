@@ -1,615 +1,437 @@
 "use client";
 
 import React from "react";
-import { useRouter, useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  Check,
-  CreditCard,
-  Edit2,
-  Plus,
-  Calendar,
-  Ruler,
-  AlertCircle,
-  Clock,
-  Sparkles,
-  DollarSign,
-} from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { Check, CreditCard, Plus, Ruler, Scissors, ChevronRight, FileQuestion } from "lucide-react";
+import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { List, ListItem, IconTile } from "@/components/ui/list";
+import { PageBody, PageHeader, Section } from "@/components/ui/page";
+import { EmptyState, ErrorState, LoadingRegion, Skeleton } from "@/components/ui/states";
 import { StatusTag, Tag } from "@/components/ui/tag";
-import { Skeleton } from "@/components/ui/states";
+import { AnimatePresence, motion } from "motion/react";
+import { AddMaterialSheet, MaterialHero, MaterialStrip, MaterialViewer, useOrderMaterials } from "@/components/order/materials";
+import { ProductionTracker } from "@/components/order/production-tracker";
+import { RecordPaymentDialog } from "@/components/payment-dialog";
+import { RecordFittingDialog } from "@/components/order/fitting-dialog";
+import { orderRepo } from "@/lib/data/store";
+import { getQueryData, setQueryData } from "@/lib/query";
+import { qk, useCustomer, useMeasurementSet, useOrder } from "@/lib/queries";
+import { useBusiness } from "@/lib/use-business";
+import { cn } from "@/lib/utils";
+import { dueLabel, formatDate, formatMoney } from "@/lib/format";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { orderRepo, customerRepo } from "@/lib/data/store";
-import { getGarmentImage } from "@/lib/mock/seed-data";
-import type { Order, OrderStatusName, FittingAdjustment, Customer } from "@/types";
-import { toast } from "sonner";
-
-const allStatuses: OrderStatusName[] = [
-  "pending",
-  "cutting",
-  "sewing",
-  "fitting",
-  "alterations",
-  "ready",
-  "delivered",
-  "cancelled",
-];
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
+  ORDER_STATUSES,
+  balanceMinor,
+  displayStatus,
+  isActive,
+  isOverdue,
+  paidMinor,
+  normalizeStatus,
+  statusLabel,
+} from "@/lib/orders";
+import type { Order, OrderStatusName } from "@/types";
 
 export default function OrderDetailPage() {
   const router = useRouter();
   const params = useParams();
   const orderId = params.id as string;
+  const { unit } = useBusiness();
 
-  const [loading, setLoading] = React.useState(true);
-  const [order, setOrder] = React.useState<Order | null>(null);
-  const [customer, setCustomer] = React.useState<Customer | null>(null);
-  const [editingStatus, setEditingStatus] = React.useState(false);
-
-  // Record Payment Modal
-  const [paymentOpen, setPaymentOpen] = React.useState(false);
-  const [paymentAmount, setPaymentAmount] = React.useState("");
-  const [paymentMethod, setPaymentMethod] = React.useState("Transfer");
-  const [paymentRef, setPaymentRef] = React.useState("");
-  const [recordingPayment, setRecordingPayment] = React.useState(false);
-
-  // Record Fitting Modal
+  const orderQ = useOrder(orderId);
+  // Until the full order arrives, show the copy already in the orders list
+  // (everything except photos) so the screen opens instantly.
+  const listCopy = React.useMemo(
+    () => getQueryData<Order[]>(qk.orders)?.find(o => o.id === orderId),
+    [orderId]
+  );
+  const order: Order | null = orderQ.data !== undefined ? orderQ.data : (listCopy ?? null);
+  const setOrder = orderQ.mutate as (updater: Order | ((old: Order | null | undefined) => Order | null)) => void;
+  const status: "loading" | "ready" | "error" =
+    order || orderQ.data === null ? "ready" : orderQ.status === "error" ? "error" : "loading";
+  const customer = useCustomer(order?.customerId ?? null).data ?? null;
+  const measurementSet = useMeasurementSet(order?.items[0]?.measurementSetId || null).data ?? null;
+  const [statusSheet, setStatusSheet] = React.useState(false);
+  const [updatingStatus, setUpdatingStatus] = React.useState<OrderStatusName | null>(null);
+  const [payOpen, setPayOpen] = React.useState(false);
   const [fittingOpen, setFittingOpen] = React.useState(false);
-  const [fittingOutcome, setFittingOutcome] = React.useState<"approved" | "adjustments_needed">("adjustments_needed");
-  const [fittingNotes, setFittingNotes] = React.useState("");
-  const [adjustments, setAdjustments] = React.useState<FittingAdjustment[]>([]);
-  const [selectedField, setSelectedField] = React.useState("Waist");
-  const [selectedDelta, setSelectedDelta] = React.useState("-½");
-  const [recordingFitting, setRecordingFitting] = React.useState(false);
+  const [addPhotoOpen, setAddPhotoOpen] = React.useState(false);
+  const [viewerIndex, setViewerIndex] = React.useState<number | null>(null);
 
-  React.useEffect(() => {
-    orderRepo.getById(orderId).then(async o => {
-      setOrder(o);
-      if (o) {
-        const c = await customerRepo.getById(o.customerId);
-        setCustomer(c);
-      }
-      setLoading(false);
-    });
-  }, [orderId]);
-
-  const handleStatusChange = async (status: OrderStatusName) => {
-    if (!order) return;
-    await orderRepo.updateStatus(order.id, status);
-    setOrder({ ...order, statusName: status });
-    setEditingStatus(false);
-    toast.success(`Status updated to ${status}`);
+  const refreshOrder = async () => {
+    await orderQ.refetch();
   };
 
-  const handleRecordPayment = async () => {
-    if (!order) return;
-    const num = parseFloat(paymentAmount);
-    if (isNaN(num) || num <= 0) {
-      toast.error("Please enter a valid payment amount");
+  // Optimistic: the tracker animates immediately; rolls back if saving fails.
+  const changeStatus = async (next: OrderStatusName) => {
+    if (!order || next === order.statusName) {
+      setStatusSheet(false);
       return;
     }
-    setRecordingPayment(true);
-    const amountMinor = Math.round(num * 100);
-    const newPayment = await orderRepo.addPayment(order.id, {
-      amountMinor,
-      method: paymentMethod,
-      reference: paymentRef.trim() || undefined,
-    });
-    if (newPayment) {
-      const updated = await orderRepo.getById(order.id);
-      setOrder(updated);
-      toast.success(`Payment of ₦${num.toLocaleString()} recorded`);
-      setPaymentOpen(false);
-      setPaymentAmount("");
-      setPaymentRef("");
+    const previous = order.statusName;
+    const patchList = (statusName: OrderStatusName) => {
+      if (getQueryData<Order[]>(qk.orders))
+        setQueryData<Order[]>(qk.orders, list => (list ?? []).map(o => (o.id === order.id ? { ...o, statusName } : o)));
+    };
+    setOrder({ ...order, statusName: next });
+    patchList(next);
+    setStatusSheet(false);
+    setUpdatingStatus(next);
+    try {
+      await orderRepo.updateStatus(order.id, next);
+      toast.success(`Moved to ${statusLabel(next).toLowerCase()}`);
+    } catch {
+      setOrder(o => (o ? { ...o, statusName: previous } : o ?? null));
+      patchList(previous);
+      toast.error("Couldn't update the status — it's been put back");
+    } finally {
+      setUpdatingStatus(null);
     }
-    setRecordingPayment(false);
   };
 
-  const handleAddAdjustment = () => {
-    if (!selectedField) return;
-    const deltaMm = selectedDelta.includes("-") ? -12.7 : 12.7;
-    setAdjustments(prev => [
-      ...prev.filter(a => a.label !== selectedField),
-      {
-        fieldKey: selectedField.toLowerCase().replace(/\s/g, "_"),
-        label: selectedField,
-        deltaMm,
-        rawDelta: selectedDelta,
-      },
-    ]);
-  };
-
-  const handleRemoveAdjustment = (fieldKey: string) => {
-    setAdjustments(prev => prev.filter(a => a.fieldKey !== fieldKey));
-  };
-
-  const handleRecordFitting = async () => {
-    if (!order) return;
-    setRecordingFitting(true);
-    const newFit = await orderRepo.addFitting(order.id, {
-      outcome: fittingOutcome,
-      adjustments: fittingOutcome === "approved" ? [] : adjustments,
-      notes: fittingNotes.trim() || undefined,
-    });
-    if (newFit) {
-      const updated = await orderRepo.getById(order.id);
-      setOrder(updated);
-      toast.success("Fitting session recorded");
-      setFittingOpen(false);
-      setFittingNotes("");
-      setAdjustments([]);
-    }
-    setRecordingFitting(false);
-  };
-
-  if (loading) {
+  if (status === "loading") {
     return (
-      <div className="px-4 pt-safe pt-8 space-y-4">
-        <Skeleton width={200} height={24} />
-        <Skeleton width={300} height={16} />
-        <Skeleton width="100%" height={120} className="rounded-[var(--radius-card)]" />
-      </div>
+      <>
+        <PageHeader variant="compact" title="Order" back="/orders" backLabel="Back to orders" />
+        <PageBody>
+          <LoadingRegion label="Loading order">
+            <Skeleton width="60%" height={28} className="mt-2" />
+            <Skeleton width="40%" height={16} className="mt-3" />
+            <Skeleton variant="rectangular" height={88} className="mt-6" />
+            <Skeleton variant="rectangular" height={180} className="mt-6" />
+          </LoadingRegion>
+        </PageBody>
+      </>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <>
+        <PageHeader variant="compact" title="Order" back="/orders" backLabel="Back to orders" />
+        <ErrorState title="Couldn't load this order" onRetry={() => orderQ.refetch()} />
+      </>
     );
   }
 
   if (!order) {
     return (
-      <div className="px-4 pt-safe pt-8 text-center">
-        <p className="text-text-secondary">Order not found</p>
-      </div>
+      <>
+        <PageHeader variant="compact" title="Order" back="/orders" backLabel="Back to orders" />
+        <EmptyState
+          icon={<FileQuestion />}
+          title="Order not found"
+          description="It may have been removed, or the link is incorrect."
+          action={<Button onClick={() => router.push("/orders")}>Back to orders</Button>}
+        />
+      </>
     );
   }
 
-  const paid = order.payments.reduce((s, p) => s + p.amountMinor, 0);
-  const balance = order.priceMinor - paid;
+  const paid = paidMinor(order);
+  const balance = balanceMinor(order);
+  const paidPct = order.priceMinor > 0 ? Math.min(100, Math.round((paid / order.priceMinor) * 100)) : 0;
+  const overdue = isOverdue(order);
+  const fieldOptions = measurementSet?.values.map(v => ({ key: v.fieldKey, label: v.labelSnapshot }));
 
   return (
-    <div className="max-w-3xl mx-auto pb-16">
-      {/* Slim bar - fixed on scroll so context is never lost */}
-      <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur-sm px-4 lg:px-8 pt-safe">
-        <div className="flex items-center gap-3 py-3">
-          <button
-            onClick={() => router.push("/orders")}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-beige-light transition-colors shrink-0"
-            aria-label="Back to orders"
-          >
-            <ArrowLeft size={18} strokeWidth={1.75} />
-          </button>
-          <p className="text-sm font-semibold text-text-primary truncate flex-1">Order #{order.number}</p>
-          <StatusTag status={order.statusName} className="shrink-0" />
-        </div>
-      </div>
-
-      <div className="px-4 lg:px-8">
-      {/* Header */}
-      <div className="flex items-start gap-4 mb-6 pt-2">
-        <Avatar name={order.customerName} src={customer?.photoUrl} size="lg" className="ring-2 ring-olive/20 shadow-sm" />
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="font-serif text-2xl font-bold text-text-primary">Order #{order.number}</h1>
-            <StatusTag status={order.statusName} />
-          </div>
-          <button
-            onClick={() => router.push(`/clients/${order.customerId}`)}
-            className="text-sm text-olive hover:underline font-semibold mt-0.5 inline-block"
-          >
-            {order.customerName} &rarr;
-          </button>
-          <p className="text-xs text-text-tertiary mt-1">
-            Created {formatDate(order.createdAt)} · Due {formatDate(order.dueAt)}
-          </p>
-        </div>
-      </div>
-
-      {/* Status Editor */}
-      <Card className="mb-4 shadow-xs">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-sm">
-            <span>Workflow Status</span>
-            <button
-              onClick={() => setEditingStatus(!editingStatus)}
-              className="text-xs text-olive hover:underline flex items-center gap-1 font-semibold"
+    <>
+      <PageHeader
+        variant="compact"
+        eyebrow={order.customerName}
+        title={`Order #${order.number}`}
+        back="/orders"
+        backLabel="Back to orders"
+        actions={
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={displayStatus(order)}
+              initial={{ y: -14, opacity: 0, scale: 0.85 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 14, opacity: 0, scale: 0.85 }}
+              transition={{ type: "spring", stiffness: 420, damping: 30 }}
+              className="inline-flex"
             >
-              <Edit2 size={13} strokeWidth={1.5} />
-              {editingStatus ? "Done" : "Update status"}
-            </button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {editingStatus ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {allStatuses.map(s => (
-                <button
-                  key={s}
-                  onClick={() => handleStatusChange(s)}
-                  className={`h-8 px-3 rounded-full text-xs font-semibold capitalize transition-all active:scale-[0.97] ${
-                    order.statusName === s
-                      ? "bg-olive text-white-warm ring-2 ring-olive ring-offset-2 shadow-xs"
-                      : "bg-beige-light text-text-secondary hover:bg-beige"
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center justify-between">
-              <StatusTag status={order.statusName} />
-              <span className="text-xs text-text-tertiary">
-                Step in custom tailoring workflow
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              <StatusTag status={displayStatus(order)} />
+            </motion.span>
+          </AnimatePresence>
+        }
+      />
 
-      {/* Garment Piece Showcase Card with High Resolution Imagery */}
-      <Card className="mb-4 shadow-xs overflow-hidden">
-        <CardHeader>
-          <CardTitle className="text-sm font-bold flex items-center justify-between">
-            <span>Bespoke Garment Piece</span>
-            <span className="text-xs text-olive font-semibold">Atelier Cut</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {order.items.map(item => {
-              const garmentImg = item.imageUrl || getGarmentImage(item.garmentType);
-              return (
-                <div
-                  key={item.id}
-                  className="p-3.5 rounded-[var(--radius-card)] bg-beige-light/25 border border-border/80 flex flex-col sm:flex-row gap-4 items-start sm:items-center"
-                >
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden shrink-0 border border-border bg-dark-surface-1 shadow-xs">
-                    <img
-                      src={garmentImg}
-                      alt={item.garmentType}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                      <h4 className="text-base font-bold text-text-primary">{item.garmentType}</h4>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="h-8 text-xs font-semibold"
-                        onClick={() => router.push(`/clients/${order.customerId}`)}
-                      >
-                        <Ruler size={13} />
-                        View measurements
-                      </Button>
-                    </div>
-                    {item.styleNotes && (
-                      <p className="text-xs text-text-secondary bg-white-warm p-2 rounded-[var(--radius-sm)] border border-border/60 mb-2">
-                        {item.styleNotes}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 text-xs text-text-tertiary">
-                      <span>Fabric: Hand-selected textile</span>
-                      <span>·</span>
-                      <span className="text-olive font-medium">Bespoke construction</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <PageBody className="pb-10">
+        {/* Fabric hero — recognise the job, material and client at a glance */}
+        <div className="pt-2">
+          <MaterialHero
+            order={order}
+            clientPhoto={customer?.photoUrl}
+            subtitle={isActive(order) ? dueLabel(order.dueAt) : `Due ${formatDate(order.dueAt)}`}
+            subtitleTone={overdue ? "danger" : "default"}
+            onAdd={() => setAddPhotoOpen(true)}
+            onOpen={setViewerIndex}
+          />
+          <MaterialStrip order={order} onAdd={() => setAddPhotoOpen(true)} onOpen={setViewerIndex} />
+        </div>
 
-      {/* Payment Ledger */}
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-sm">
-            <span>Payment Ledger</span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setPaymentAmount(balance > 0 ? (balance / 100).toString() : "");
-                setPaymentOpen(true);
-              }}
-            >
-              <CreditCard size={14} strokeWidth={1.5} />
+        {/* Production */}
+        <div className="mt-6">
+          <ProductionTracker
+            status={order.statusName}
+            onChange={changeStatus}
+            onOpenAll={() => setStatusSheet(true)}
+            updating={!!updatingStatus}
+          />
+        </div>
+
+        {/* Payments */}
+        <Section
+          title="Payments"
+          trailing={
+            <Button variant="secondary" size="sm" onClick={() => setPayOpen(true)}>
+              <CreditCard />
               Record payment
             </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2 mb-3">
-            <div className="flex justify-between text-sm py-1 border-b border-border/40">
-              <span className="text-text-secondary">Agreed Price</span>
-              <span className="font-semibold text-text-primary">₦{(order.priceMinor / 100).toLocaleString()}</span>
-            </div>
-            {order.payments.map(p => (
-              <div key={p.id} className="flex justify-between items-center text-sm py-1">
+          }
+        >
+          <Card padding="none">
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-end justify-between gap-4">
                 <div>
-                  <span className="text-text-primary font-medium">{p.method}</span>
-                  <span className="text-xs text-text-tertiary ml-2">
-                    {formatDate(p.paidAt)} {p.reference && `· ${p.reference}`}
-                  </span>
+                  <p className="text-caption text-text-tertiary">{balance > 0 ? "Balance due" : "Status"}</p>
+                  <p className={cn("tabular mt-1 text-[28px] font-semibold leading-none tracking-tight", balance > 0 ? "text-ink" : "text-success")}>
+                    {balance > 0 ? formatMoney(balance, order.currency) : order.priceMinor > 0 ? "Paid in full" : "No price set"}
+                  </p>
                 </div>
-                <span className="text-success font-semibold">₦{(p.amountMinor / 100).toLocaleString()}</span>
+                <div className="text-right">
+                  <p className="text-caption text-text-tertiary">Agreed price</p>
+                  <p className="tabular mt-1 text-[15px] font-semibold text-ink">{formatMoney(order.priceMinor, order.currency)}</p>
+                </div>
               </div>
-            ))}
-            <div className="border-t border-border pt-2.5 flex justify-between text-sm font-bold">
-              <span>Outstanding Balance</span>
-              <span className={balance > 0 ? "text-warning" : "text-success"}>
-                {balance > 0 ? `₦${(balance / 100).toLocaleString()}` : "Paid in full ✓"}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Fitting Log */}
-      <Card className="mb-4">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-sm">
-            <span>Fitting Log ({order.fittings.length})</span>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setFittingOpen(true)}
-            >
-              <Plus size={14} strokeWidth={1.5} />
-              Record fitting
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {order.fittings.length === 0 ? (
-            <div className="py-6 text-center">
-              <p className="text-xs text-text-secondary mb-3">No fitting sessions logged for this order yet</p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-olive text-xs"
-                onClick={() => setFittingOpen(true)}
-              >
-                + Log fitting session #1
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {order.fittings.map(f => (
-                <div key={f.id} className="pb-3 border-b border-border last:border-b-0 last:pb-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-semibold text-text-primary">Fitting #{f.number}</p>
-                    <Tag size="sm" variant={f.outcome === "approved" ? "success" : "warning"}>
-                      {f.outcome === "approved" ? "Approved ✓" : "Adjustments needed"}
-                    </Tag>
+              {order.priceMinor > 0 && (
+                <div className="mt-4">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-sunken" role="progressbar" aria-valuenow={paidPct} aria-valuemin={0} aria-valuemax={100} aria-label="Amount paid">
+                    <div className="h-full rounded-full bg-olive transition-[width] duration-[var(--duration-slow)]" style={{ width: `${paidPct}%` }} />
                   </div>
-                  <p className="text-xs text-text-secondary">{formatDate(f.fittedAt)}</p>
-                  {f.adjustments && f.adjustments.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {f.adjustments.map(a => (
-                        <Tag key={a.fieldKey} size="sm" variant="beige">
-                          {a.label} {a.rawDelta}
-                        </Tag>
-                      ))}
-                    </div>
-                  )}
-                  {f.notes && (
-                    <p className="text-xs text-text-tertiary mt-1.5 bg-beige-light/30 p-2 rounded-[var(--radius-sm)]">
-                      {f.notes}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ---- RECORD PAYMENT MODAL ---- */}
-      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CreditCard size={18} className="text-olive" />
-              Record Payment
-            </DialogTitle>
-            <DialogDescription>
-              Record an installment, deposit, or final settlement for Order #{order.number}.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">Amount (₦)</label>
-              <input
-                type="number"
-                value={paymentAmount}
-                onChange={e => setPaymentAmount(e.target.value)}
-                placeholder="e.g. 25000"
-                className="w-full h-11 px-3 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-              {balance > 0 && (
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentAmount((balance / 100).toString())}
-                    className="text-xs px-2.5 py-1 rounded bg-beige-light text-text-primary hover:bg-beige transition-colors"
-                  >
-                    Full Balance: ₦{(balance / 100).toLocaleString()}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentAmount(Math.round(balance / 200).toString())}
-                    className="text-xs px-2.5 py-1 rounded bg-beige-light text-text-primary hover:bg-beige transition-colors"
-                  >
-                    50%: ₦{Math.round(balance / 200).toLocaleString()}
-                  </button>
+                  <p className="tabular mt-2 text-caption text-text-tertiary">
+                    {formatMoney(paid, order.currency)} paid · {paidPct}%
+                  </p>
                 </div>
               )}
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">Payment Method</label>
-              <div className="grid grid-cols-2 gap-2">
-                {["Transfer", "Cash", "Card / POS", "Mobile Money"].map(m => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setPaymentMethod(m)}
-                    className={`h-9 rounded-[var(--radius-button)] text-xs font-medium border transition-colors ${
-                      paymentMethod === m
-                        ? "bg-olive text-white-warm border-olive"
-                        : "bg-white-warm text-text-primary border-border hover:bg-beige-light"
-                    }`}
-                  >
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">Reference / Note (Optional)</label>
-              <input
-                type="text"
-                value={paymentRef}
-                onChange={e => setPaymentRef(e.target.value)}
-                placeholder="e.g. Bank transfer ref or receipt #"
-                className="w-full h-10 px-3 rounded-[var(--radius-input)] border border-border bg-white-warm text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-olive"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="secondary" onClick={() => setPaymentOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleRecordPayment} disabled={recordingPayment}>
-              {recordingPayment ? "Saving..." : "Save Payment"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ---- RECORD FITTING MODAL ---- */}
-      <Dialog open={fittingOpen} onOpenChange={setFittingOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Ruler size={18} className="text-olive" />
-              Log Fitting Session #{order.fittings.length + 1}
-            </DialogTitle>
-            <DialogDescription>
-              Record the client's fitting trial and any per-field alterations required.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1.5">Fitting Outcome</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFittingOutcome("approved")}
-                  className={`h-9 rounded-[var(--radius-button)] text-xs font-medium border transition-colors ${
-                    fittingOutcome === "approved"
-                      ? "bg-success text-white-warm border-success"
-                      : "bg-white-warm text-text-primary border-border hover:bg-beige-light"
-                  }`}
-                >
-                  ✓ Approved (Fits perfectly)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFittingOutcome("adjustments_needed")}
-                  className={`h-9 rounded-[var(--radius-button)] text-xs font-medium border transition-colors ${
-                    fittingOutcome === "adjustments_needed"
-                      ? "bg-warning text-white-warm border-warning"
-                      : "bg-white-warm text-text-primary border-border hover:bg-beige-light"
-                  }`}
-                >
-                  Adjustments Needed
-                </button>
-              </div>
-            </div>
-
-            {fittingOutcome === "adjustments_needed" && (
-              <div className="p-3 bg-beige-light/30 rounded-[var(--radius-card)] border border-border space-y-3">
-                <p className="text-xs font-semibold text-text-primary">Add Alteration / Adjustment</p>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedField}
-                    onChange={e => setSelectedField(e.target.value)}
-                    className="flex-1 h-9 px-2 text-xs rounded border border-border bg-white-warm"
-                  >
-                    {["Waist", "Trouser length", "Chest", "Sleeve length", "Shoulder", "Hips", "Neck", "Crotch rise"].map(f => (
-                      <option key={f} value={f}>{f}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedDelta}
-                    onChange={e => setSelectedDelta(e.target.value)}
-                    className="w-24 h-9 px-2 text-xs rounded border border-border bg-white-warm"
-                  >
-                    {["-1 in", "-¾ in", "-½ in", "-¼ in", "+¼ in", "+½ in", "+¾ in", "+1 in"].map(d => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                  <Button variant="secondary" size="sm" type="button" onClick={handleAddAdjustment}>
-                    Add
-                  </Button>
-                </div>
-
-                {adjustments.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {adjustments.map(a => (
-                      <span
-                        key={a.fieldKey}
-                        onClick={() => handleRemoveAdjustment(a.fieldKey)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-white-warm border border-border text-text-primary cursor-pointer hover:bg-danger-bg hover:text-danger transition-colors"
-                      >
-                        {a.label}: <strong>{a.rawDelta}</strong> ×
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+            {order.payments.length > 0 && (
+              <ul className="divide-y divide-divider border-t border-divider">
+                {[...order.payments]
+                  .sort((a, b) => +new Date(b.paidAt) - +new Date(a.paidAt))
+                  .map(p => (
+                    <li key={p.id} className="flex items-center gap-3.5 px-5 py-3.5">
+                      <IconTile tone="success" size="sm">
+                        <Check />
+                      </IconTile>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[15px] font-medium text-ink">{p.method}</p>
+                        <p className="truncate text-caption text-text-tertiary">
+                          {formatDate(p.paidAt)}
+                          {p.reference && ` · ${p.reference}`}
+                        </p>
+                      </div>
+                      <span className="tabular text-[15px] font-semibold text-ink">{formatMoney(p.amountMinor, order.currency)}</span>
+                    </li>
+                  ))}
+              </ul>
             )}
+          </Card>
+        </Section>
 
-            <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">Tailor's Fitting Notes</label>
-              <textarea
-                value={fittingNotes}
-                onChange={e => setFittingNotes(e.target.value)}
-                placeholder="e.g. Sleeves need to be shortened by 1 inch. Taper trouser leg from knee down."
-                rows={3}
-                className="w-full p-2.5 rounded-[var(--radius-input)] border border-border bg-white-warm text-xs text-text-primary focus:outline-none focus:ring-2 focus:ring-olive"
+        {/* Garment details */}
+        <Section title="Garment">
+          <List>
+            <ListItem
+              href={`/clients/${order.customerId}`}
+              leading={<Avatar name={order.customerName} src={customer?.photoUrl} />}
+              title={order.customerName}
+              subtitle={customer?.phones[0] ?? "View client"}
+              chevron
+            />
+            {order.items.map(item => (
+              <ListItem
+                key={item.id}
+                leading={
+                  <IconTile>
+                    <Scissors />
+                  </IconTile>
+                }
+                title={item.garmentType}
+                subtitle={item.styleNotes || "No style notes"}
               />
+            ))}
+            <ListItem
+              href={`/clients/${order.customerId}`}
+              leading={
+                <IconTile tone="olive">
+                  <Ruler />
+                </IconTile>
+              }
+              title={measurementSet ? `${measurementSet.templateName} measurements` : "Measurements"}
+              subtitle={
+                measurementSet
+                  ? `Taken ${formatDate(measurementSet.takenAt)} · ${measurementSet.values.length} values`
+                  : "No measurement set linked — view the client's measurements"
+              }
+              chevron
+            />
+          </List>
+          {order.note && (
+            <div className="mt-3 rounded-[var(--radius-card)] bg-surface-sunken/60 px-4 py-3">
+              <p className="text-caption font-semibold text-text-tertiary">Order note</p>
+              <p className="mt-1 text-label text-text-secondary">{order.note}</p>
             </div>
-          </div>
+          )}
+        </Section>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="secondary" onClick={() => setFittingOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleRecordFitting} disabled={recordingFitting}>
-              {recordingFitting ? "Saving..." : "Log Fitting"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      </div>
-    </div>
+        {/* Fittings */}
+        <Section
+          title="Fittings"
+          trailing={
+            order.fittings.length > 0 ? (
+              <Button variant="secondary" size="sm" onClick={() => setFittingOpen(true)}>
+                <Plus />
+                Record fitting
+              </Button>
+            ) : undefined
+          }
+        >
+          {order.fittings.length === 0 ? (
+            <EmptyState
+              variant="inset"
+              icon={<Scissors />}
+              title="No fittings yet"
+              description="Log each fitting with its outcome and any adjustments."
+              action={
+                <Button variant="secondary" onClick={() => setFittingOpen(true)}>
+                  <Plus />
+                  Record fitting 1
+                </Button>
+              }
+            />
+          ) : (
+            <List>
+              {[...order.fittings]
+                .sort((a, b) => b.number - a.number)
+                .map(f => (
+                  <ListItem
+                    key={f.id}
+                    leading={
+                      <IconTile tone={f.outcome === "approved" ? "success" : "warning"}>
+                        {f.outcome === "approved" ? <Check /> : <Scissors />}
+                      </IconTile>
+                    }
+                    title={`Fitting ${f.number}`}
+                    subtitle={formatDate(f.fittedAt)}
+                    trailing={
+                      <Tag size="sm" variant={f.outcome === "approved" ? "success" : "warning"}>
+                        {f.outcome === "approved" ? "Approved" : f.outcome === "skipped" ? "Skipped" : "Adjustments"}
+                      </Tag>
+                    }
+                  >
+                    {f.adjustments.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {f.adjustments.map(a => (
+                          <Tag key={a.fieldKey} size="sm" variant="beige" className="tabular">
+                            {a.label} {a.rawDelta}
+                          </Tag>
+                        ))}
+                      </div>
+                    )}
+                    {f.notes && <p className="mt-2 text-label text-text-secondary whitespace-normal">{f.notes}</p>}
+                  </ListItem>
+                ))}
+            </List>
+          )}
+        </Section>
+
+        <p className="mt-10 text-center text-caption text-text-tertiary">
+          <Link href={`/clients/${order.customerId}`} className="inline-flex items-center gap-0.5 font-semibold text-olive">
+            All orders for {order.customerName.split(" ")[0]} <ChevronRight size={14} />
+          </Link>
+        </p>
+      </PageBody>
+
+      {/* Status sheet */}
+      <BottomSheet open={statusSheet} onOpenChange={setStatusSheet} title="Order status" description={`Currently ${statusLabel(order.statusName).toLowerCase()}`}>
+        <div role="radiogroup" aria-label="Order status" className="-mx-2 space-y-1">
+          {ORDER_STATUSES.map(s => {
+            const selected = normalizeStatus(order.statusName) === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => changeStatus(s.key)}
+                disabled={!!updatingStatus}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-[var(--radius-card)] px-3 py-3 text-left transition-colors",
+                  selected ? "bg-surface-sunken" : "hover:bg-beige-light/70"
+                )}
+              >
+                <StatusTag status={s.key} appearance="dot" className="flex-1 text-[15px]" />
+                {updatingStatus === s.key ? (
+                  <span className="size-4 animate-spin rounded-full border-2 border-ink border-r-transparent" />
+                ) : selected ? (
+                  <Check size={18} strokeWidth={2} className="text-ink" />
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </BottomSheet>
+
+      <OrderMaterials
+        order={order}
+        onOrder={setOrder}
+        addOpen={addPhotoOpen}
+        onAddOpenChange={setAddPhotoOpen}
+        viewerIndex={viewerIndex}
+        onViewerIndex={setViewerIndex}
+      />
+      <RecordPaymentDialog order={payOpen ? order : null} onOpenChange={setPayOpen} onRecorded={refreshOrder} />
+      <RecordFittingDialog
+        open={fittingOpen}
+        onOpenChange={setFittingOpen}
+        orderId={order.id}
+        fittingNumber={order.fittings.length + 1}
+        unit={unit}
+        fieldOptions={fieldOptions}
+        onRecorded={refreshOrder}
+      />
+    </>
+  );
+}
+
+/** Add sheet + viewer, sharing one set of photo operations. */
+function OrderMaterials({
+  order,
+  onOrder,
+  addOpen,
+  onAddOpenChange,
+  viewerIndex,
+  onViewerIndex,
+}: {
+  order: Order;
+  onOrder: (o: Order) => void;
+  addOpen: boolean;
+  onAddOpenChange: (o: boolean) => void;
+  viewerIndex: number | null;
+  onViewerIndex: (i: number | null) => void;
+}) {
+  const { busy, add, remove, makeCover } = useOrderMaterials(order, onOrder);
+  return (
+    <>
+      <AddMaterialSheet open={addOpen} onOpenChange={onAddOpenChange} onPick={add} busy={busy} />
+      <MaterialViewer order={order} index={viewerIndex} onIndex={onViewerIndex} onRemove={remove} onCover={makeCover} busy={busy} />
+    </>
   );
 }

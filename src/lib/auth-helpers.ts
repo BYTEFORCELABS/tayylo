@@ -31,12 +31,29 @@ export async function requireUserId(): Promise<string> {
  * client (query params, body) — always derive it from the session via this
  * function.
  */
-export async function requireBusiness(userId: string) {
-  const business = await prisma.business.findUnique({ where: { ownerId: userId } });
+// userId → businessId. A user's business id never changes once created, so
+// caching it saves one database round trip on every API request. Only
+// positive results are cached (a user mid-onboarding has no business yet),
+// and entries expire so a deleted account can't linger.
+const businessIdCache = new Map<string, { id: string; expires: number }>();
+const BUSINESS_ID_TTL_MS = 5 * 60_000;
+
+export async function requireBusiness(userId: string): Promise<{ id: string }> {
+  const hit = businessIdCache.get(userId);
+  if (hit && hit.expires > Date.now()) return { id: hit.id };
+
+  const business = await prisma.business.findUnique({ where: { ownerId: userId }, select: { id: true } });
   if (!business) {
+    businessIdCache.delete(userId);
     throw new ApiError(404, "No business found for the signed-in user yet");
   }
+  businessIdCache.set(userId, { id: business.id, expires: Date.now() + BUSINESS_ID_TTL_MS });
   return business;
+}
+
+/** Drop the cached business id (e.g. after the account is deleted). */
+export function forgetBusiness(userId: string) {
+  businessIdCache.delete(userId);
 }
 
 /** Convenience: session + business in one call, for the common case. */

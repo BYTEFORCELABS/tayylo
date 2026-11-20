@@ -1,95 +1,144 @@
 @import "tailwindcss";
 
 /* ================================================================
-   TAYYLO DESIGN SYSTEM - CSS Custom Properties
+   TAYYLO DESIGN SYSTEM — single source of truth for visual tokens.
+   Mirrored for TS consumers in src/lib/tokens.ts.
+
+   Direction: premium minimalism, soft warm monochrome surfaces,
+   olive as the one brand accent, pill actions, restrained elevation.
    ================================================================ */
 
 @theme {
-  /* Brand colours */
-  --color-olive: #454F2C;
-  --color-olive-deep: #30371F;
-  --color-olive-light: #6B7A45;
-  --color-beige: #F0EEE9;
-  --color-beige-light: #F7F6F3;
-  --color-cream: #FFFFFF;
+  /* ---- Brand ---------------------------------------------------- */
+  --color-olive: #454F2C;          /* primary brand / primary action  */
+  --color-olive-deep: #2E3420;     /* pressed, summary panels         */
+  --color-olive-light: #6B7A45;    /* accents on dark surfaces        */
+  --color-olive-soft: #E6E8DA;     /* tinted fills, selected states   */
+  --color-beige: #E8E2D4;          /* brand beige                     */
+  --color-beige-light: #F0EDE5;    /* subtle fills, hover             */
+
+  /* ---- Surfaces (light → elevated) ------------------------------ */
+  --color-canvas: #F4F2EC;         /* app background                  */
+  --color-surface: #FBFAF7;        /* cards, grouped lists            */
+  --color-surface-raised: #FFFFFF; /* dialogs, sheets, floating nav   */
+  --color-surface-sunken: #ECE9E1; /* input tracks, segmented bg      */
+  --color-panel: #2E3420;          /* prominent summary panel         */
+  --color-panel-muted: #3B4229;    /* chips on panel                  */
+
+  /* Legacy aliases (kept so nothing silently loses its colour) */
+  --color-cream: #F4F2EC;
   --color-white-warm: #FFFFFF;
-  --color-card-bg: #FFFFFF;
+  --color-card-bg: #FBFAF7;
 
-  /* Text */
-  --color-text-primary: #24261F;
-  --color-text-secondary: #6A6C61;
-  --color-text-tertiary: #73756A;
-  --color-text-inverse: #FFFFFF;
+  /* ---- Text ----------------------------------------------------- */
+  --color-ink: #1E2019;
+  --color-text-primary: #1E2019;
+  --color-text-secondary: #55574C;
+  --color-text-tertiary: #6B6D62;  /* ≥4.5:1 on canvas               */
+  --color-text-inverse: #FBFAF7;
+  --color-text-on-panel-muted: #C9CDB8;
 
-  /* Borders */
-  --color-border: #EBEAE5;
-  --color-border-strong: #D8D6CD;
+  /* ---- Lines ---------------------------------------------------- */
+  --color-border: #E3E0D6;
+  --color-border-strong: #CFCBBE;
+  --color-divider: #ECE9E1;
 
-  /* Status */
-  --color-success: #3F7A52;
-  --color-warning: #A8741F;
-  --color-danger: #A3412F;
-  --color-info: #476A80;
+  /* ---- Status (muted, never shouting) --------------------------- */
+  --color-success: #3D6B48;
+  --color-success-bg: #E5EEE4;
+  --color-warning: #8F6220;
+  --color-warning-bg: #F4EBDA;
+  --color-danger: #9C3D2C;
+  --color-danger-bg: #F5E4DF;
+  --color-info: #3F6175;
+  --color-info-bg: #E2EAEE;
 
-  /* Status backgrounds */
-  --color-success-bg: #E8F2EC;
-  --color-warning-bg: #F5EDDF;
-  --color-danger-bg: #F5E6E3;
-  --color-info-bg: #E3ECF0;
-
-  /* Dark mode colours */
+  /* Legacy dark tokens (images overlays etc.) */
   --color-dark-surface-1: #15170F;
-  --color-dark-surface-2: #1D2017;
-  --color-dark-surface-3: #272B1F;
-  --color-dark-text: #EDE7DA;
   --color-dark-olive: #A9B386;
-  --color-dark-border: #3A3F2E;
 
-  /* Spacing (8px grid) */
-  --spacing-0: 0px;
-  --spacing-0-5: 2px;
-  --spacing-1: 4px;
-  --spacing-1-5: 6px;
-  --spacing-2: 8px;
-  --spacing-3: 12px;
-  --spacing-4: 16px;
-  --spacing-5: 20px;
-  --spacing-6: 24px;
-  --spacing-8: 32px;
-  --spacing-10: 40px;
-  --spacing-14: 56px;
-  --spacing-18: 72px;
+  /* ---- Typography ----------------------------------------------- */
+  --font-sans: var(--font-urbanist), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-urbanist), ui-sans-serif, system-ui, sans-serif;
 
-  /* Radii */
-  --radius-sm: 6px;
-  --radius-button: 8px;
-  --radius-input: 8px;
-  --radius-card: 12px;
-  --radius-sheet: 20px;
+  --text-display: 2.25rem;          /* 36 — hero numbers           */
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.025em;
+  --text-display--font-weight: 600;
+
+  --text-title: 1.625rem;           /* 26 — page titles            */
+  --text-title--line-height: 1.15;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 600;
+
+  --text-headline: 1.0625rem;       /* 17 — section / card titles  */
+  --text-headline--line-height: 1.3;
+  --text-headline--letter-spacing: -0.01em;
+  --text-headline--font-weight: 600;
+
+  --text-body: 0.9375rem;           /* 15 — body                   */
+  --text-body--line-height: 1.5;
+
+  --text-label: 0.8125rem;          /* 13 — labels, meta           */
+  --text-label--line-height: 1.35;
+
+  --text-caption: 0.75rem;          /* 12 — captions               */
+  --text-caption--line-height: 1.4;
+
+  --text-overline: 0.6875rem;       /* 11 — group overlines        */
+  --text-overline--line-height: 1.3;
+  --text-overline--letter-spacing: 0.08em;
+  --text-overline--font-weight: 600;
+
+  /* ---- Spacing: Tailwind's 4px base (--spacing) is the scale.
+     Use 1,2,3,4,5,6,8,10,12,16 steps only. ------------------------ */
+
+  /* ---- Radius scale -------------------------------------------- */
+  --radius-xs: 6px;      /* kbd, tiny indicators                   */
+  --radius-sm: 10px;     /* thumbnails, small controls             */
+  --radius-control: 12px;/* segmented items, keypad keys           */
+  --radius-input: 14px;  /* text inputs, selects, textareas        */
+  --radius-card: 20px;   /* cards, grouped lists                   */
+  --radius-panel: 28px;  /* summary panels                         */
+  --radius-dialog: 28px; /* dialogs                                */
+  --radius-sheet: 28px;  /* bottom sheets (top corners)            */
+  --radius-button: 9999px; /* every button is a pill              */
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sheet: 0 -4px 24px rgba(36, 38, 31, 0.08);
-  --shadow-dialog: 0 8px 32px rgba(36, 38, 31, 0.12);
-  --shadow-drag: 0 4px 16px rgba(36, 38, 31, 0.1);
+  /* ---- Elevation (only where it communicates layering) ----------- */
+  --shadow-xs: 0 1px 2px rgba(30, 32, 25, 0.05);
+  --shadow-float: 0 10px 30px -8px rgba(30, 32, 25, 0.22), 0 2px 6px rgba(30, 32, 25, 0.06);
+  --shadow-fab: 0 8px 20px -4px rgba(46, 52, 32, 0.45);
+  --shadow-dialog: 0 24px 64px -16px rgba(30, 32, 25, 0.28);
+  --shadow-sheet: 0 -12px 40px -12px rgba(30, 32, 25, 0.18);
 
-  /* Typography */
-  --font-sans: var(--font-urbanist), system-ui, -apple-system, sans-serif;
-  --font-serif: var(--font-urbanist), system-ui, -apple-system, sans-serif;
-
-  /* Motion */
-  --duration-fast: 150ms;
+  /* ---- Motion --------------------------------------------------- */
+  --duration-fast: 120ms;
   --duration-normal: 200ms;
-  --duration-slow: 220ms;
-  --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --duration-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Focus */
-  --focus-ring: 2px solid #454F2C;
-  --focus-offset: 3px;
+  --animate-fade-in: fade-in var(--duration-normal) var(--ease-out) both;
+  --animate-scale-in: scale-in var(--duration-normal) var(--ease-emphasized) both;
+  --animate-rise-in: rise-in var(--duration-slow) var(--ease-emphasized) both;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
 /* ================================================================
-   BASE STYLES
+   BASE
    ================================================================ */
 
 *,
@@ -103,72 +152,76 @@ html {
   text-size-adjust: 100%;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  background-color: var(--color-canvas);
 }
 
 body {
   font-family: var(--font-sans);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-  background-color: var(--color-cream);
+  color: var(--color-ink);
+  background-color: var(--color-canvas);
   margin: 0;
   min-height: 100dvh;
+  font-size: var(--text-body);
+  line-height: 1.5;
 }
 
-/* Tabular figures everywhere */
-* {
+/* Tabular, aligned figures for money, dates and measurements */
+.tabular,
+.measurement-value {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.measurement-value {
+  letter-spacing: -0.02em;
 }
 
-/* Serif headings */
-.font-serif {
-  font-family: var(--font-serif);
-}
-
-/* Focus ring */
+/* Focus: one consistent olive ring */
 :focus-visible {
   outline: 2px solid var(--color-olive);
-  outline-offset: 3px;
-  border-radius: var(--radius-sm);
+  outline-offset: 2px;
 }
-
-/* Text inputs define their own focus treatment (ring/border color) -
-   skip the global outline above so focus isn't shown twice. */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
 }
 
-/* Links reset */
 a {
   color: inherit;
   text-decoration: none;
 }
 
-/* Input sizing to prevent iOS zoom */
+/* ≥16px prevents iOS zoom on focus */
 input,
 select,
 textarea {
   font-size: 16px;
 }
 
-/* Selection */
-::selection {
-  background-color: var(--color-beige);
-  color: var(--color-text-primary);
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
 }
 
-/* Scrollbar styling */
+::selection {
+  background-color: var(--color-olive-soft);
+  color: var(--color-ink);
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--color-border-strong);
   border-radius: var(--radius-full);
+  border: 2px solid var(--color-canvas);
 }
 
 /* ================================================================
@@ -187,59 +240,53 @@ textarea {
 }
 
 /* ================================================================
-   UTILITY CLASSES
+   UTILITIES
    ================================================================ */
 
-/* Safe area padding for mobile bottom nav */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.pt-safe {
+@utility pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* Space reserved under page content for the floating mobile nav */
+@utility pb-nav {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 112px);
+}
 
-/* Hide scrollbar but allow scroll */
-.scrollbar-none {
+@utility scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-.scrollbar-none::-webkit-scrollbar {
-  display: none;
-}
-
-/* Measurement value display */
-.measurement-value {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-  letter-spacing: -0.02em;
-}
-
-/* Press scale for buttons */
-@media (hover: hover) {
-  .press-scale:active {
-    transform: scale(0.98);
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 
-/* Skeleton animation */
+@utility press {
+  transition: transform var(--duration-fast) var(--ease-out);
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+/* Skeleton shimmer — follows surface tokens */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
-
 .skeleton {
   background: linear-gradient(
     90deg,
-    var(--color-border) 25%,
+    var(--color-surface-sunken) 25%,
     var(--color-beige-light) 50%,
-    var(--color-border) 75%
+    var(--color-surface-sunken) 75%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  animation: shimmer 1.6s ease-in-out infinite;
   border-radius: var(--radius-sm);
+}
+
+/* vaul drawer: smoother overlay fade */
+[data-vaul-overlay] {
+  transition: opacity var(--duration-slow) var(--ease-out);
 }

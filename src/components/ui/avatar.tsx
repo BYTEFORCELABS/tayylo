@@ -2,71 +2,63 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { initials } from "@/lib/format";
 
-interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
+interface AvatarProps extends React.HTMLAttributes<HTMLSpanElement> {
   name: string;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   src?: string;
 }
 
-function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-}
+// Muted, warm initials backgrounds — deterministic per name so a client
+// always looks the same, without introducing off-brand colours.
+const tints = [
+  "bg-olive-soft text-olive-deep",
+  "bg-beige text-[#5B5240]",
+  "bg-[#E3E6E0] text-[#3E4A44]",
+  "bg-[#EDE3DA] text-[#6A4E3A]",
+  "bg-surface-sunken text-text-secondary",
+];
 
-// Deterministic color from name for slight variation
-function getAvatarBg(name: string): string {
-  // All olive-tinted backgrounds
-  const bgs = [
-    "bg-olive/10",
-    "bg-olive/15",
-    "bg-olive/12",
-    "bg-beige-light",
-    "bg-olive/8",
-  ];
+function tintFor(name: string) {
   let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return bgs[Math.abs(hash) % bgs.length];
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return tints[Math.abs(hash) % tints.length];
 }
 
 const sizeClasses = {
-  sm: "w-8 h-8 text-xs",
-  md: "w-10 h-10 text-sm",
-  lg: "w-12 h-12 text-base",
-  xl: "w-16 h-16 text-lg",
+  xs: "size-6 text-[10px]",
+  sm: "size-8 text-[11px]",
+  md: "size-10 text-[13px]",
+  lg: "size-12 text-[15px]",
+  xl: "size-20 text-[24px]",
 };
 
-const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
+// Rendered as a <span> so it is valid inside text, buttons and links.
+const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
   ({ name, size = "md", src, className, ...props }, ref) => {
     const [imgError, setImgError] = React.useState(false);
-
+    const showImage = !!src && !imgError;
     return (
-      <div
+      <span
         ref={ref}
+        role="img"
+        aria-label={name}
         className={cn(
-          "inline-flex items-center justify-center rounded-full font-semibold select-none shrink-0",
-          "text-olive",
-          !src || imgError ? getAvatarBg(name) : "",
+          "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold tracking-tight",
+          !showImage && tintFor(name),
           sizeClasses[size],
           className
         )}
-        aria-label={name}
         {...props}
       >
-        {src && !imgError ? (
-          <img
-            src={src}
-            alt={name}
-            className="w-full h-full rounded-full object-cover"
-            onError={() => setImgError(true)}
-          />
+        {showImage ? (
+          // eslint-disable-next-line @next/next/no-img-element -- user-supplied data URLs / remote photos
+          <img src={src} alt="" className="size-full object-cover" onError={() => setImgError(true)} />
         ) : (
-          getInitials(name)
+          <span aria-hidden>{initials(name)}</span>
         )}
-      </div>
+      </span>
     );
   }
 );

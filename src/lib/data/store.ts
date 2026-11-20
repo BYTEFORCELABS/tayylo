@@ -21,6 +21,16 @@ import type {
   Payment,
   Fitting,
 } from "@/types";
+import { clearQueries, fetchQuery, getQueryData, invalidateQueries } from "@/lib/query";
+
+/** Error carrying the HTTP status, so callers can tell "signed out" (401) apart. */
+export class ApiRequestError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -30,9 +40,16 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 404) return null as T;
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request to ${path} failed (${res.status})`);
+    throw new ApiRequestError(res.status, body.error || `Request to ${path} failed (${res.status})`);
   }
   return res.json();
+}
+
+/** Run a write, then mark the affected cached queries stale. */
+async function mutating<T>(run: Promise<T>, ...keys: string[]): Promise<T> {
+  const result = await run;
+  invalidateQueries(...keys);
+  return result;
 }
 
 // ---- business ----
@@ -42,7 +59,7 @@ export const businessRepo = {
     return api<Business | null>("/api/business");
   },
   async update(partial: Partial<Business>): Promise<Business> {
-    return api<Business>("/api/business", { method: "PATCH", body: JSON.stringify(partial) });
+    return mutating(api<Business>("/api/business", { method: "PATCH", body: JSON.stringify(partial) }), "business");
   },
   async isOnboarded(): Promise<boolean> {
     return !!(await businessRepo.get());
@@ -66,35 +83,44 @@ export const customerRepo = {
     return api<Customer | null>(`/api/customers/${id}`);
   },
   async create(data: Omit<Customer, "id" | "businessId" | "createdAt" | "updatedAt">): Promise<Customer> {
-    return api<Customer>("/api/customers", { method: "POST", body: JSON.stringify(data) });
+    return mutating(api<Customer>("/api/customers", { method: "POST", body: JSON.stringify(data) }), "customers");
   },
   async update(id: string, partial: Partial<Customer>): Promise<Customer | null> {
-    return api<Customer | null>(`/api/customers/${id}`, { method: "PATCH", body: JSON.stringify(partial) });
+    return mutating(
+      api<Customer | null>(`/api/customers/${id}`, { method: "PATCH", body: JSON.stringify(partial) }),
+      "customers",
+      `customer:${id}`
+    );
   },
   async checkDuplicatePhone(phone: string, excludeId?: string): Promise<boolean> {
-    const all = await customerRepo.list();
+    // Reuse the cached client list when it's there — no extra request per keystroke.
+    const all = getQueryData<Customer[]>("customers") ?? (await fetchQuery("customers", customerRepo.list));
     const normalized = phone.replace(/\s/g, "");
     return all.some(
       c => c.id !== excludeId && c.phones.some(p => p.replace(/\s/g, "") === normalized)
     );
   },
   async addMedia(customerId: string, mediaItem: { url: string; caption?: string }): Promise<Media | null> {
-    return api<Media | null>(`/api/customers/${customerId}/media`, {
-      method: "POST",
-      body: JSON.stringify(mediaItem),
-    });
+    return mutating(
+      api<Media | null>(`/api/customers/${customerId}/media`, {
+        method: "POST",
+        body: JSON.stringify(mediaItem),
+      }),
+      `customer:${customerId}`
+    );
   },
   async deleteMedia(customerId: string, mediaId: string): Promise<boolean> {
-    const result = await api<{ ok: boolean }>(`/api/customers/${customerId}/media/${mediaId}`, {
-      method: "DELETE",
-    });
+    const result = await mutating(
+      api<{ ok: boolean }>(`/api/customers/${customerId}/media/${mediaId}`, { method: "DELETE" }),
+      `customer:${customerId}`
+    );
     return result?.ok ?? false;
   },
   async importCustomers(items: Array<{ fullName: string; phone?: string; email?: string; notes?: string }>): Promise<number> {
-    const result = await api<{ count: number }>("/api/customers/import", {
-      method: "POST",
-      body: JSON.stringify(items),
-    });
+    const result = await mutating(
+      api<{ count: number }>("/api/customers/import", { method: "POST", body: JSON.stringify(items) }),
+      "customers"
+    );
     return result?.count ?? 0;
   },
 };
@@ -113,13 +139,21 @@ export const measurementRepo = {
     return api<MeasurementSet | null>(`/api/customers/${customerId}/measurements${q}`);
   },
   async createVersion(data: Omit<MeasurementSet, "id" | "businessId" | "takenAt" | "status">): Promise<MeasurementSet> {
-    return api<MeasurementSet>("/api/measurements", { method: "POST", body: JSON.stringify(data) });
+    return mutating(
+      api<MeasurementSet>("/api/measurements", { method: "POST", body: JSON.stringify(data) }),
+      `measurements:${data.customerId}`,
+      "customers"
+    );
   },
   async restoreVersion(versionId: string, customNote?: string): Promise<MeasurementSet | null> {
-    return api<MeasurementSet | null>(`/api/measurements/${versionId}/restore`, {
-      method: "POST",
-      body: JSON.stringify({ note: customNote }),
-    });
+    return mutating(
+      api<MeasurementSet | null>(`/api/measurements/${versionId}/restore`, {
+        method: "POST",
+        body: JSON.stringify({ note: customNote }),
+      }),
+      "measurements",
+      "customers"
+    );
   },
 };
 
@@ -141,35 +175,58 @@ export const orderRepo = {
     return api<Order | null>(`/api/orders/${id}`);
   },
   async getByCustomer(customerId: string): Promise<Order[]> {
-    const all = await orderRepo.list();
-    return all.filter(o => o.customerId === customerId);
+    return (await api<Order[]>(`/api/orders?customerId=${encodeURIComponent(customerId)}`)) ?? [];
   },
   async create(data: Omit<Order, "id" | "businessId" | "createdAt" | "updatedAt">): Promise<Order> {
-    return api<Order>("/api/orders", { method: "POST", body: JSON.stringify(data) });
+    return mutating(api<Order>("/api/orders", { method: "POST", body: JSON.stringify(data) }), "orders");
   },
   async updateStatus(id: string, status: Order["statusName"]): Promise<Order | null> {
-    return api<Order | null>(`/api/orders/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ statusName: status }),
-    });
+    return mutating(
+      api<Order | null>(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ statusName: status }) }),
+      "orders",
+      `order:${id}`
+    );
   },
   async addPayment(
     orderId: string,
     payment: { amountMinor: number; method: string; reference?: string; paidAt?: string }
   ): Promise<Payment | null> {
-    return api<Payment | null>(`/api/orders/${orderId}/payments`, {
-      method: "POST",
-      body: JSON.stringify(payment),
-    });
+    return mutating(
+      api<Payment | null>(`/api/orders/${orderId}/payments`, { method: "POST", body: JSON.stringify(payment) }),
+      "orders",
+      `order:${orderId}`
+    );
+  },
+  async addMedia(orderId: string, item: { url: string; caption?: string }): Promise<Media | null> {
+    return mutating(
+      api<Media | null>(`/api/orders/${orderId}/media`, { method: "POST", body: JSON.stringify(item) }),
+      `order:${orderId}`
+    );
+  },
+  async deleteMedia(orderId: string, mediaId: string): Promise<boolean> {
+    const result = await mutating(
+      api<{ ok: boolean }>(`/api/orders/${orderId}/media/${mediaId}`, { method: "DELETE" }),
+      `order:${orderId}`
+    );
+    return result?.ok ?? false;
+  },
+  /** Chooses which photo represents the order in lists (null clears it). */
+  async setCover(orderId: string, cover: { mediaId: string; thumbUrl: string } | null): Promise<Order | null> {
+    return mutating(
+      api<Order | null>(`/api/orders/${orderId}`, { method: "PATCH", body: JSON.stringify({ cover }) }),
+      "orders",
+      `order:${orderId}`
+    );
   },
   async addFitting(
     orderId: string,
     fitting: { outcome: "adjustments_needed" | "approved"; adjustments: Fitting["adjustments"]; notes?: string; fittedAt?: string }
   ): Promise<Fitting | null> {
-    return api<Fitting | null>(`/api/orders/${orderId}/fittings`, {
-      method: "POST",
-      body: JSON.stringify(fitting),
-    });
+    return mutating(
+      api<Fitting | null>(`/api/orders/${orderId}/fittings`, { method: "POST", body: JSON.stringify(fitting) }),
+      "orders",
+      `order:${orderId}`
+    );
   },
 };
 
@@ -178,7 +235,8 @@ export const orderRepo = {
 export async function exportData(): Promise<{ jsonStr: string; csvStr: string }> {
   const [business, customers, orders] = await Promise.all([
     businessRepo.get(),
-    customerRepo.list(),
+    // The backup includes client photos, which lists normally leave out.
+    api<Customer[]>("/api/customers?include=media").then(r => r ?? []),
     orderRepo.list(),
   ]);
 
@@ -205,4 +263,15 @@ export async function exportData(): Promise<{ jsonStr: string; csvStr: string }>
 
 export async function resetStore(): Promise<void> {
   await api("/api/reset", { method: "POST" });
+  clearQueries();
 }
+
+// ---- account ----
+
+export const accountRepo = {
+  /** Permanently deletes the user and everything that cascades from it. */
+  async delete(): Promise<void> {
+    await api("/api/account", { method: "DELETE" });
+    clearQueries();
+  },
+};

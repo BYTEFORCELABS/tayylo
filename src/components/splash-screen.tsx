@@ -8,28 +8,30 @@ import animationData from "../../public/tayylo-logo-lottie-pack/tayylo-lockup-cr
 const Lottie = dynamic(() => import("lottie-react").then(mod => mod.Lottie), { ssr: false });
 
 const SEEN_KEY = "tayylo-splash-seen";
-const SAFETY_TIMEOUT_MS = 4000;
-const EXIT_DURATION_MS = 450;
+/** Hard ceiling — the brand reveal never holds the user longer than this. */
+const SAFETY_TIMEOUT_MS = 2600;
+const EXIT_DURATION_MS = 380;
 
 type Phase = "checking" | "playing" | "exiting" | "done";
 
+/**
+ * Plays the lockup reveal once per browser session over deep olive, then
+ * dissolves into the app. Never renders on the server, so it can't cause a
+ * hydration flash; tapping skips it; reduced-motion users skip it entirely.
+ */
 export function SplashScreen({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = React.useState<Phase>("checking");
 
-  // "checking" renders no overlay on both server and first client render,
-  // so there's nothing for hydration to mismatch - the splash only ever
-  // appears after we've confirmed (client-side) that it hasn't run yet
-  // this session. The sessionStorage read is deferred a tick so the
-  // resulting setState lands outside this effect's own commit.
   React.useEffect(() => {
     const id = setTimeout(() => {
       try {
-        if (sessionStorage.getItem(SEEN_KEY)) {
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (reduce || sessionStorage.getItem(SEEN_KEY)) {
           setPhase("done");
           return;
         }
       } catch {
-        // sessionStorage unavailable (private mode, etc.) - just play once.
+        // sessionStorage unavailable — just play once.
       }
       setPhase("playing");
     }, 0);
@@ -45,9 +47,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
     const t = setTimeout(() => {
       try {
         sessionStorage.setItem(SEEN_KEY, "1");
-      } catch {
-        // ignore
-      }
+      } catch {}
       setPhase("done");
     }, EXIT_DURATION_MS);
     return () => clearTimeout(t);
@@ -68,15 +68,19 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
             key="splash"
             initial={{ opacity: 1 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 1.04 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: EXIT_DURATION_MS / 1000, ease: [0.16, 1, 0.3, 1] }}
             onClick={finish}
             role="presentation"
-            className="fixed inset-0 z-[9999] bg-olive-deep flex items-center justify-center"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-panel"
           >
-            <div className="w-[58vw] max-w-[240px]">
+            <motion.div
+              className="w-[52vw] max-w-[220px]"
+              exit={{ scale: 0.96, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            >
               <Lottie src={animationData} loop={false} autoplay subscriptions={{ complete: finish }} />
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

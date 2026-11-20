@@ -1,9 +1,11 @@
 "use client";
 
 import React, { Suspense } from "react";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, LinkIcon } from "lucide-react";
+import { AuthLayout } from "@/components/auth/auth-layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 function ResetPasswordPageInner() {
   const router = useRouter();
@@ -11,104 +13,129 @@ function ResetPasswordPageInner() {
   const token = searchParams.get("token") ?? "";
 
   const [password, setPassword] = React.useState("");
-  const [confirmPassword, setConfirmPassword] = React.useState("");
-  const [showPassword, setShowPassword] = React.useState(false);
+  const [confirm, setConfirm] = React.useState("");
+  const [show, setShow] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [done, setDone] = React.useState(false);
+  const [touched, setTouched] = React.useState(false);
 
-  const canSubmit = !!token && password.length >= 6 && password === confirmPassword && !loading;
+  const tooShort = password.length > 0 && password.length < 6;
+  const mismatch = confirm.length > 0 && confirm !== password;
+  const canSubmit = !!token && password.length >= 6 && password === confirm && !loading;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setTouched(true);
     if (!canSubmit) return;
     setError(null);
     setLoading(true);
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, password }),
-    });
-    setLoading(false);
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      setError(body.error || "Could not reset your password");
-      return;
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, password }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || "Could not reset your password");
+        return;
+      }
+      setDone(true);
+    } catch {
+      setError("Couldn't reach Tayylo. Check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    router.push("/auth?mode=signin");
   };
 
-  return (
-    <div className="min-h-[100dvh] bg-cream flex flex-col items-center justify-center px-6">
-      <div className="flex justify-center mb-6">
-        <Image src="/symbol_olive.png" alt="Tayylo" width={48} height={48} />
-      </div>
-
-      <div className="w-full max-w-sm">
-        <h1 className="font-serif text-3xl font-bold text-text-primary mb-1.5 text-center">
-          Set a new password
-        </h1>
-        <p className="text-base text-text-secondary mb-7 text-center">
-          {token ? "Choose a new password for your account." : "Open this page from the reset link in your email."}
+  if (!token) {
+    return (
+      <AuthLayout onBack={() => router.push("/auth?mode=signin")} backLabel="Back to sign in">
+        <div className="mb-5 flex size-14 items-center justify-center rounded-full bg-surface-sunken text-text-secondary">
+          <LinkIcon size={24} strokeWidth={1.75} />
+        </div>
+        <h1 className="text-title text-ink">Open the link from your email</h1>
+        <p className="mt-2 text-body text-text-secondary">
+          This page needs the reset link we emailed you. If it expired, request a new one.
         </p>
+        <Button size="lg" block className="mt-8" onClick={() => router.push("/auth?mode=signin")}>
+          Back to sign in
+        </Button>
+      </AuthLayout>
+    );
+  }
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="relative">
-            <Lock
-              size={19}
-              strokeWidth={1.5}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary"
-            />
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="New password"
-              disabled={!token}
-              autoComplete="new-password"
-              className="w-full h-14 pl-11 pr-11 rounded-[var(--radius-input)] border border-border bg-white-warm text-base text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-olive disabled:opacity-50"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(v => !v)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-text-tertiary hover:text-text-primary"
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeOff size={19} strokeWidth={1.5} /> : <Eye size={19} strokeWidth={1.5} />}
-            </button>
+  if (done) {
+    return (
+      <AuthLayout onBack={() => router.push("/auth?mode=signin")} backLabel="Back to sign in">
+        <div className="mb-5 flex size-14 items-center justify-center rounded-full bg-success-bg text-success animate-scale-in">
+          <CheckCircle2 size={26} strokeWidth={1.75} />
+        </div>
+        <h1 className="text-title text-ink">Password updated</h1>
+        <p className="mt-2 text-body text-text-secondary">Sign in with your new password to continue.</p>
+        <Button size="lg" block className="mt-8" onClick={() => router.push("/auth?mode=signin")}>
+          Sign in
+        </Button>
+      </AuthLayout>
+    );
+  }
+
+  const toggle = (
+    <button
+      type="button"
+      onClick={() => setShow(v => !v)}
+      aria-label={show ? "Hide passwords" : "Show passwords"}
+      className="flex size-9 items-center justify-center rounded-full text-text-tertiary hover:bg-surface-sunken hover:text-ink"
+    >
+      {show ? <EyeOff size={18} strokeWidth={1.75} /> : <Eye size={18} strokeWidth={1.75} />}
+    </button>
+  );
+
+  return (
+    <AuthLayout onBack={() => router.push("/auth?mode=signin")} backLabel="Back to sign in">
+      <h1 className="text-title text-ink">Set a new password</h1>
+      <p className="mt-2 text-body text-text-secondary">Choose a password you haven&apos;t used here before.</p>
+
+      <form onSubmit={submit} noValidate className="mt-8 space-y-5">
+        <Input
+          label="New password"
+          type={show ? "text" : "password"}
+          autoComplete="new-password"
+          leadingIcon={<Lock />}
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          error={(touched || tooShort) && password.length < 6 ? "Use at least 6 characters" : undefined}
+          helperText="At least 6 characters"
+          trailing={toggle}
+          autoFocus
+        />
+        <Input
+          label="Confirm new password"
+          type={show ? "text" : "password"}
+          autoComplete="new-password"
+          leadingIcon={<Lock />}
+          value={confirm}
+          onChange={e => setConfirm(e.target.value)}
+          error={mismatch || (touched && confirm !== password) ? "Passwords don't match" : undefined}
+        />
+        {error && (
+          <div role="alert" className="flex items-start gap-2.5 rounded-[var(--radius-input)] bg-danger-bg px-4 py-3 text-label text-danger">
+            <AlertCircle size={16} strokeWidth={2} className="mt-0.5 shrink-0" />
+            {error}
           </div>
-
-          <input
-            type={showPassword ? "text" : "password"}
-            value={confirmPassword}
-            onChange={e => setConfirmPassword(e.target.value)}
-            placeholder="Confirm new password"
-            disabled={!token}
-            autoComplete="new-password"
-            className="w-full h-14 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-base text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-olive disabled:opacity-50"
-          />
-
-          {error && (
-            <p className="text-sm text-danger bg-danger-bg rounded-[var(--radius-input)] px-3.5 py-2.5">
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="w-full h-14 rounded-[var(--radius-button)] bg-olive text-white-warm font-semibold text-base hover:bg-olive-deep transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
-          >
-            {loading ? "Saving..." : "Save new password"}
-          </button>
-        </form>
-      </div>
-    </div>
+        )}
+        <Button type="submit" size="lg" block loading={loading}>
+          Save new password
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-[100dvh] bg-cream" />}>
+    <Suspense fallback={<div className="min-h-[100dvh] bg-canvas" />}>
       <ResetPasswordPageInner />
     </Suspense>
   );

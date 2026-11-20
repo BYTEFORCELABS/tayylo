@@ -2,617 +2,418 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import {
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Trash2,
-  FileDown,
-  FileUp,
-  Palette,
-  Edit2,
-  Ruler,
-  Users,
-  Download,
-  UploadCloud,
-  LogOut,
-  Layers,
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tag } from "@/components/ui/tag";
+import { signOut, useSession } from "next-auth/react";
+import { Ruler, Layers, FileUp, FileDown, LogOut, Trash2, Palette, Coins, RotateCcw, Mail, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/choice";
+import { Input, Select } from "@/components/ui/input";
+import { List, ListItem, IconTile } from "@/components/ui/list";
+import { PageBody, PageHeader, Overline } from "@/components/ui/page";
+import { Skeleton } from "@/components/ui/states";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  businessRepo,
-  customerRepo,
-  templateRepo,
-  exportData,
-  resetStore,
-} from "@/lib/data/store";
-import { signOut } from "next-auth/react";
-import type { Business, MeasurementTemplate } from "@/types";
-import { toast } from "sonner";
+import { TemplatesDialog } from "@/components/settings/templates-dialog";
+import { ImportDialog } from "@/components/settings/import-dialog";
+import { ExportDialog } from "@/components/settings/export-dialog";
+import { accountRepo, businessRepo, resetStore } from "@/lib/data/store";
+import { clearBusinessCache, setCachedBusiness, useBusiness } from "@/lib/use-business";
+import { CURRENCIES, currencySymbol } from "@/lib/format";
+import type { Business, UnitSystem } from "@/types";
 
 export default function SettingsPage() {
   const router = useRouter();
-  const [business, setBusiness] = React.useState<Business | null>(null);
-  const [templates, setTemplates] = React.useState<MeasurementTemplate[]>([]);
+  const { data: session } = useSession();
+  const { business, loading } = useBusiness();
+
+  const [profileOpen, setProfileOpen] = React.useState(false);
+  const [templatesOpen, setTemplatesOpen] = React.useState(false);
+  const [importOpen, setImportOpen] = React.useState(false);
+  const [exportOpen, setExportOpen] = React.useState(false);
+  const [resetOpen, setResetOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
 
-  // Business profile modal
-  const [bizOpen, setBizOpen] = React.useState(false);
-  const [bizName, setBizName] = React.useState("");
-  const [ownerName, setOwnerName] = React.useState("");
-  const [bizCurrency, setBizCurrency] = React.useState("NGN");
-
-  // Template manager modal
-  const [templateOpen, setTemplateOpen] = React.useState(false);
-  const [selectedTemplate, setSelectedTemplate] = React.useState<MeasurementTemplate | null>(null);
-
-  // Import modal
-  const [importOpen, setImportOpen] = React.useState(false);
-  const [csvText, setCsvText] = React.useState("");
-  const [importing, setImporting] = React.useState(false);
-
-  // Export modal
-  const [exportOpen, setExportOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    businessRepo.get().then(b => {
-      if (!b) return;
-      setBusiness(b);
-      setBizName(b.name);
-      setOwnerName(b.ownerName);
-      setBizCurrency(b.currency);
-    });
-    templateRepo.list().then(setTemplates);
-  }, []);
-
-  const handleSaveBusiness = async () => {
-    if (!bizName.trim()) return;
-    const updated = await businessRepo.update({
-      name: bizName.trim(),
-      ownerName: ownerName.trim() || undefined,
-      currency: bizCurrency,
-    });
-    setBusiness(updated);
-    setBizOpen(false);
-    toast.success("Business profile updated");
-  };
-
-  // Contacts Simulator Import
-  const handleSimulateContacts = async () => {
-    setImporting(true);
-    const mockContacts = [
-      { fullName: "Olamide Bakare", phone: "+234 802 111 9988", email: "olamide@example.com", notes: "VIP wedding client" },
-      { fullName: "Folake Daniels", phone: "+234 803 222 7766", notes: "Prefers A-line skirts and boubous" },
-      { fullName: "Ibrahim Sani", phone: "+234 809 444 3322", email: "ibrahim.s@example.com", notes: "Kaftans & Senator suits" },
-      { fullName: "Claire Moreau", phone: "+33 6 88 99 00 11", notes: "Cocktail dresses" },
-      { fullName: "Tunde Williams", phone: "+234 818 555 1234", notes: "Three-piece bespoke suits" },
-    ];
-    const count = await customerRepo.importCustomers(mockContacts);
-    setImporting(false);
-    setImportOpen(false);
-    toast.success(`Imported ${count} contacts into Tayylo`);
-  };
-
-  // Parse CSV text & import
-  const handleImportCsv = async () => {
-    if (!csvText.trim()) return;
-    setImporting(true);
-    const lines = csvText.trim().split("\n");
-    const items = lines.map(line => {
-      const parts = line.split(",").map(p => p.trim().replace(/^"|"$/g, ""));
-      return {
-        fullName: parts[0] || "",
-        phone: parts[1] || undefined,
-        email: parts[2] || undefined,
-        notes: parts[3] || undefined,
-      };
-    }).filter(i => i.fullName.length > 0 && i.fullName.toLowerCase() !== "full name");
-
-    if (items.length === 0) {
-      toast.error("No valid client rows found in CSV text");
-      setImporting(false);
-      return;
+  const updateUnit = async (unitSystem: UnitSystem) => {
+    try {
+      const updated = await businessRepo.update({ unitSystem });
+      setCachedBusiness(updated);
+      toast.success(unitSystem === "metric" ? "Measurements now in centimetres" : "Measurements now in inches");
+    } catch {
+      toast.error("Couldn't change the unit");
     }
-
-    const count = await customerRepo.importCustomers(items);
-    setImporting(false);
-    setImportOpen(false);
-    setCsvText("");
-    toast.success(`Imported ${count} clients from CSV`);
-  };
-
-  // Downloads for export
-  const handleDownloadJson = async () => {
-    const { jsonStr } = await exportData();
-    const blob = new Blob([jsonStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `tayylo-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Downloaded complete JSON database archive");
-  };
-
-  const handleDownloadCsv = async () => {
-    const { csvStr } = await exportData();
-    const blob = new Blob([csvStr], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `tayylo-clients-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Downloaded clients CSV spreadsheet");
-  };
-
-  const handleDeleteAccount = async () => {
-    await resetStore();
-    setDeleteOpen(false);
-    toast.success("Workspace wiped");
-    window.location.reload();
   };
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
+    clearBusinessCache();
     router.push("/welcome");
   };
 
   return (
-    <div className="max-w-2xl mx-auto pb-16">
-      {/* Fixed on scroll so context is never lost */}
-      <div className="sticky top-0 z-20 bg-cream/95 backdrop-blur-sm px-4 lg:px-8 pt-safe">
-        <h1 className="font-serif text-2xl text-text-primary pt-6 pb-4">Settings</h1>
-      </div>
-
-      <div className="px-4 lg:px-8">
-      {/* Business profile */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Business</h2>
-        <Card className="bg-gradient-to-br from-olive/[0.06] to-transparent">
-          <CardContent>
-            <div
-              className="flex items-center gap-4 cursor-pointer -mx-4 -my-2 p-4 rounded-[var(--radius-card)] transition-colors hover:bg-olive/5"
-              onClick={() => setBizOpen(true)}
-            >
-              <Avatar
-                name={business?.ownerName || business?.name || "Tailor"}
-                size="lg"
-                className="ring-2 ring-white-warm shadow-sm"
+    <>
+      <PageHeader title="Settings" width="sm" />
+      <PageBody width="sm" className="space-y-8">
+        {/* Studio */}
+        <section>
+          <Overline className="mb-3 px-1">Studio</Overline>
+          {loading || !business ? (
+            <Skeleton variant="rectangular" height={88} />
+          ) : (
+            <List>
+              <ListItem
+                onClick={() => setProfileOpen(true)}
+                leading={<Avatar name={business.name} size="lg" />}
+                title={<span className="text-headline">{business.name}</span>}
+                subtitle={[business.ownerName, business.country].filter(Boolean).join(" · ") || "Add your name and country"}
+                trailing={<span className="text-label font-semibold text-olive">Edit</span>}
               />
-              <div className="flex-1 min-w-0">
-                <p className="font-serif text-lg font-bold text-text-primary truncate leading-tight">
-                  {business?.name || "My Studio"}
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  {business?.ownerName || "Tailor"} · {business?.currency || "NGN"}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-olive font-semibold shrink-0">
-                <Edit2 size={14} />
-                <span>Edit</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
+            </List>
+          )}
+        </section>
 
-      {/* Units */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Measurements</h2>
-        <Card>
-          <CardContent>
-            <div className="flex items-center justify-between gap-3 py-1">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
-                  <Ruler size={16} className="text-olive" strokeWidth={1.75} />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-sm font-medium text-text-primary block">Unit system</span>
-                  <span className="text-xs text-text-tertiary">Default unit for numeric keypad entry</span>
-                </div>
-              </div>
-              <div className="flex gap-1 bg-beige-light rounded-[var(--radius-button)] p-1 shrink-0">
-                <button
-                  onClick={() => businessRepo.update({ unitSystem: "imperial" }).then(setBusiness)}
-                  className={`px-3 py-1 rounded-[var(--radius-sm)] text-xs font-medium transition-colors ${
-                    business?.unitSystem === "imperial" ? "bg-white-warm text-text-primary shadow-sm font-semibold" : "text-text-tertiary"
-                  }`}
-                >
-                  Inches (¼ ½ ¾)
-                </button>
-                <button
-                  onClick={() => businessRepo.update({ unitSystem: "metric" }).then(setBusiness)}
-                  className={`px-3 py-1 rounded-[var(--radius-sm)] text-xs font-medium transition-colors ${
-                    business?.unitSystem === "metric" ? "bg-white-warm text-text-primary shadow-sm font-semibold" : "text-text-tertiary"
-                  }`}
-                >
-                  Centimetres
-                </button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Templates */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Starter Templates</h2>
-        <Card>
-          <CardContent>
-            <button
-              onClick={() => setTemplateOpen(true)}
-              className="flex items-center justify-between gap-3 w-full py-1 text-left -mx-4 px-4 rounded-[var(--radius-card)] hover:bg-beige-light/30 transition-colors"
+        {/* Preferences */}
+        <section>
+          <Overline className="mb-3 px-1">Preferences</Overline>
+          <List>
+            <ListItem
+              leading={
+                <IconTile>
+                  <Ruler />
+                </IconTile>
+              }
+              title="Measurement unit"
+              subtitle="Used for capture, display and sharing"
             >
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
-                  <Layers size={16} className="text-olive" strokeWidth={1.75} />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-sm font-medium text-text-primary block">Measurement templates library</span>
-                  <span className="text-xs text-text-tertiary">Western & traditional garment fields</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 text-olive font-medium text-xs shrink-0">
-                <span>{templates.length} templates</span>
-                <ChevronRight size={16} strokeWidth={1.5} />
-              </div>
-            </button>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Data Import / Export */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Data & Portability</h2>
-        <Card>
-          <CardContent className="space-y-0">
-            <button
-              onClick={() => setImportOpen(true)}
-              className="flex items-center gap-3 w-full py-3 border-b border-border text-left hover:bg-beige-light/30 transition-colors -mx-4 px-4"
-            >
-              <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
-                <FileUp size={16} className="text-olive" strokeWidth={1.75} />
-              </div>
-              <div className="flex-1">
-                <span className="text-sm font-medium text-text-primary block">Import clients</span>
-                <span className="text-xs text-text-tertiary">From phone contacts or CSV spreadsheet</span>
-              </div>
-              <ChevronRight size={16} className="text-text-tertiary" strokeWidth={1.5} />
-            </button>
-
-            <button
-              onClick={() => setExportOpen(true)}
-              className="flex items-center gap-3 w-full py-3 border-b border-border text-left hover:bg-beige-light/30 transition-colors -mx-4 px-4"
-            >
-              <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
-                <FileDown size={16} className="text-olive" strokeWidth={1.75} />
-              </div>
-              <div className="flex-1">
-                <span className="text-sm font-medium text-text-primary block">Export archive</span>
-                <span className="text-xs text-text-tertiary">Download full JSON backup or clients CSV</span>
-              </div>
-              <ChevronRight size={16} className="text-text-tertiary" strokeWidth={1.5} />
-            </button>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Account */}
-      <section className="mb-6">
-        <h2 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-3">Account</h2>
-        <Card>
-          <CardContent>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-3 w-full py-1 text-left -mx-4 px-4 rounded-[var(--radius-card)] hover:bg-beige-light/30 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-beige-light flex items-center justify-center shrink-0">
-                <LogOut size={16} className="text-text-secondary" strokeWidth={1.75} />
-              </div>
-              <div className="flex-1">
-                <span className="text-sm font-medium text-text-primary block">Sign out</span>
-                <span className="text-xs text-text-tertiary">You&apos;ll need to sign back in to continue</span>
-              </div>
-            </button>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Design system showcase */}
-      <section className="mb-6">
-        <Card>
-          <CardContent>
-            <button
-              onClick={() => router.push("/design-system")}
-              className="flex items-center gap-3 w-full py-1 text-left -mx-4 px-4 rounded-[var(--radius-card)] hover:bg-beige-light/30 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-olive/10 flex items-center justify-center shrink-0">
-                <Palette size={16} className="text-olive" strokeWidth={1.75} />
-              </div>
-              <div className="flex-1">
-                <span className="text-sm font-medium text-text-primary block">Design System Showcase</span>
-                <span className="text-xs text-text-tertiary">All UI tokens, typography, and interactive components</span>
-              </div>
-              <ChevronRight size={16} className="text-text-tertiary ml-auto" strokeWidth={1.5} />
-            </button>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Delete account */}
-      <section className="mb-8">
-        <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-          <DialogTrigger asChild>
-            <button className="flex items-center gap-2 text-sm text-danger hover:underline">
-              <Trash2 size={16} strokeWidth={1.5} />
-              Reset and wipe workspace
-            </button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Reset workspace data?</DialogTitle>
-              <DialogDescription>
-                This permanently deletes every client, order, and measurement in your workspace.
-                Your sign-in and business profile stay intact.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
-              <Button variant="destructive-filled" onClick={handleDeleteAccount}>Reset workspace</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </section>
-
-      <p className="text-xs text-text-tertiary text-center pb-4">
-        Tayylo · Version 1.0.0 (Bespoke Tailoring Workspace)
-      </p>
-
-      {/* ---- BUSINESS PROFILE MODAL ---- */}
-      <Dialog open={bizOpen} onOpenChange={setBizOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Studio Profile</DialogTitle>
-            <DialogDescription>
-              Update your bespoke brand and studio details.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-1.5">Studio / Brand Name</label>
-              <input
-                type="text"
-                value={bizName}
-                onChange={e => setBizName(e.target.value)}
-                className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-1.5">Owner / Lead Tailor</label>
-              <input
-                type="text"
-                value={ownerName}
-                onChange={e => setOwnerName(e.target.value)}
-                className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-text-primary mb-1.5">Default Currency</label>
-              <select
-                value={bizCurrency}
-                onChange={e => setBizCurrency(e.target.value)}
-                className="w-full h-12 px-4 rounded-[var(--radius-input)] border border-border bg-white-warm text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-olive focus:border-olive"
-              >
-                <option value="NGN">NGN (₦) · Nigerian Naira</option>
-                <option value="USD">USD ($) · US Dollar</option>
-                <option value="GBP">GBP (£) · British Pound</option>
-                <option value="EUR">EUR (€) · Euro</option>
-                <option value="GHS">GHS (₵) · Ghanaian Cedi</option>
-                <option value="KES">KES (KSh) · Kenyan Shilling</option>
-                <option value="INR">INR (₹) · Indian Rupee</option>
-              </select>
-            </div>
-          </div>
-
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="secondary" onClick={() => setBizOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleSaveBusiness}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ---- TEMPLATE MANAGER MODAL ---- */}
-      <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Ruler size={18} className="text-olive" />
-              Measurement Templates ({templates.length})
-            </DialogTitle>
-            <DialogDescription>
-              Tayylo starter templates across Western & traditional bespoke garments.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-y-auto space-y-2 py-2 pr-1 -mr-1">
-            {templates.map(t => {
-              const isSelected = selectedTemplate?.id === t.id;
-              return (
-                <div
-                  key={t.id}
-                  className={`p-3 rounded-[var(--radius-card)] border transition-all ${
-                    isSelected ? "border-olive bg-beige-light/30" : "border-border bg-white-warm"
-                  }`}
-                >
-                  <div
-                    className="flex items-center justify-between cursor-pointer"
-                    onClick={() => setSelectedTemplate(isSelected ? null : t)}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-text-primary">{t.name}</span>
-                        <Tag size="sm" variant={t.category === "Traditional" ? "olive" : "beige"}>
-                          {t.category}
-                        </Tag>
-                      </div>
-                      <p className="text-xs text-text-secondary mt-0.5">{t.fields.length} measurement points</p>
-                    </div>
-                    <span className="flex items-center gap-1 text-xs text-olive font-medium shrink-0">
-                      {isSelected ? "Hide fields" : "View fields"}
-                      {isSelected ? (
-                        <ChevronUp size={14} strokeWidth={2} />
-                      ) : (
-                        <ChevronDown size={14} strokeWidth={2} />
-                      )}
-                    </span>
-                  </div>
-
-                  {isSelected && (
-                    <div className="mt-3 pt-3 border-t border-border/60">
-                      <div className="flex flex-wrap gap-1">
-                        {t.fields.map(f => (
-                          <span
-                            key={f.id}
-                            className="text-[11px] px-2 py-0.5 rounded bg-white-warm border border-border text-text-primary"
-                          >
-                            {f.label}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setTemplateOpen(false)}>Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ---- IMPORT CLIENTS MODAL ---- */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UploadCloud size={18} className="text-olive" />
-              Import Clients
-            </DialogTitle>
-            <DialogDescription>
-              Bring existing client records from spreadsheets or phone contacts into Tayylo.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {/* 1-tap contacts simulation */}
-            <div className="p-3 bg-beige-light/40 rounded-[var(--radius-card)] border border-border">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
-                  <Users size={14} className="text-olive" />
-                  Quick Contacts Import
-                </span>
-                <span className="text-[10px] text-text-tertiary">Recommended</span>
-              </div>
-              <p className="text-xs text-text-secondary mb-2.5">
-                Simulate importing 5 realistic clients directly into your notebook.
-              </p>
-              <Button
-                variant="primary"
+              <SegmentedControl
+                ariaLabel="Measurement unit"
                 size="sm"
-                className="w-full text-xs"
-                onClick={handleSimulateContacts}
-                disabled={importing}
-              >
-                {importing ? "Importing..." : "Import 5 Contacts"}
-              </Button>
-            </div>
-
-            {/* CSV Paste */}
-            <div>
-              <label className="block text-xs font-semibold text-text-primary mb-1">
-                Or Paste CSV Data (Name, Phone, Email, Notes)
-              </label>
-              <textarea
-                value={csvText}
-                onChange={e => setCsvText(e.target.value)}
-                placeholder={"Chioma Adebayo, +234 803 999 1122, chioma@test.com, Wedding guest\nEmeka Okafor, +234 812 555 7788, , Kaftan preferred"}
-                rows={4}
-                className="w-full p-2.5 rounded-[var(--radius-input)] border border-border bg-white-warm text-xs text-text-primary font-mono focus:outline-none focus:ring-2 focus:ring-olive"
+                className="mt-3"
+                value={business?.unitSystem ?? "imperial"}
+                onChange={updateUnit}
+                options={[
+                  { value: "imperial", label: "Inches · ¼ ½ ¾" },
+                  { value: "metric", label: "Centimetres" },
+                ]}
               />
-              <p className="text-[10px] text-text-tertiary mt-1">One client per line: Name, Phone, Email, Notes</p>
-            </div>
-          </div>
+            </ListItem>
+            <ListItem
+              onClick={() => setProfileOpen(true)}
+              leading={
+                <IconTile>
+                  <Coins />
+                </IconTile>
+              }
+              title="Currency"
+              subtitle="For prices, deposits and balances"
+              trailing={
+                <span className="text-label font-semibold text-text-secondary">
+                  {business ? `${business.currency} ${currencySymbol(business.currency)}` : "—"}
+                </span>
+              }
+              chevron
+            />
+            <ListItem
+              onClick={() => setTemplatesOpen(true)}
+              leading={
+                <IconTile>
+                  <Layers />
+                </IconTile>
+              }
+              title="Measurement templates"
+              subtitle="Fields used for each garment"
+              chevron
+            />
+          </List>
+        </section>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="secondary" onClick={() => setImportOpen(false)}>Cancel</Button>
-            {csvText.trim().length > 0 && (
-              <Button variant="primary" onClick={handleImportCsv} disabled={importing}>
-                Import CSV Rows
-              </Button>
+        {/* Data */}
+        <section>
+          <Overline className="mb-3 px-1">Your data</Overline>
+          <List>
+            <ListItem
+              onClick={() => setImportOpen(true)}
+              leading={
+                <IconTile>
+                  <FileUp />
+                </IconTile>
+              }
+              title="Import clients"
+              subtitle="From a CSV file or spreadsheet"
+              chevron
+            />
+            <ListItem
+              onClick={() => setExportOpen(true)}
+              leading={
+                <IconTile>
+                  <FileDown />
+                </IconTile>
+              }
+              title="Export data"
+              subtitle="Clients CSV or a full backup"
+              chevron
+            />
+          </List>
+        </section>
+
+        {/* Account */}
+        <section>
+          <Overline className="mb-3 px-1">Account</Overline>
+          <List>
+            {session?.user?.email && (
+              <ListItem
+                leading={
+                  <IconTile>
+                    <Mail />
+                  </IconTile>
+                }
+                title="Signed in as"
+                subtitle={session.user.email}
+              />
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <ListItem
+              onClick={handleSignOut}
+              leading={
+                <IconTile>
+                  <LogOut />
+                </IconTile>
+              }
+              title="Sign out"
+            />
+          </List>
+        </section>
 
-      {/* ---- EXPORT DATA MODAL ---- */}
-      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Download size={18} className="text-olive" />
-              Export Workspace Data
-            </DialogTitle>
-            <DialogDescription>
-              Your client records and measurements belong to you. Download complete copies anytime.
-            </DialogDescription>
-          </DialogHeader>
+        {/* Danger zone */}
+        <section>
+          <Overline className="mb-3 px-1">Danger zone</Overline>
+          <List>
+            <ListItem
+              onClick={() => setResetOpen(true)}
+              leading={
+                <IconTile tone="danger">
+                  <RotateCcw />
+                </IconTile>
+              }
+              title="Reset workspace data"
+              subtitle="Deletes all clients, orders and measurements"
+              tone="danger"
+            />
+            <ListItem
+              onClick={() => setDeleteOpen(true)}
+              leading={
+                <IconTile tone="danger">
+                  <Trash2 />
+                </IconTile>
+              }
+              title="Delete account"
+              subtitle="Removes your login and everything in it"
+              tone="danger"
+            />
+          </List>
+        </section>
 
-          <div className="space-y-3 py-3">
-            <div
-              onClick={handleDownloadCsv}
-              className="p-3.5 rounded-[var(--radius-card)] bg-white-warm border border-border hover:border-olive/60 cursor-pointer transition-colors flex items-center justify-between"
-            >
-              <div>
-                <p className="text-sm font-semibold text-text-primary">Clients Spreadsheet (CSV)</p>
-                <p className="text-xs text-text-secondary">Open in Microsoft Excel, Google Sheets, or Apple Numbers</p>
-              </div>
-              <Download size={18} className="text-olive" />
-            </div>
+        <div className="flex flex-col items-center gap-2 pb-4 pt-2">
+          <button
+            onClick={() => router.push("/design-system")}
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-caption font-semibold text-text-tertiary hover:bg-surface-sunken hover:text-ink"
+          >
+            <Palette size={14} strokeWidth={1.75} />
+            Design system
+            <ChevronRight size={14} />
+          </button>
+          <p className="text-caption text-text-tertiary">Tayylo · Version 1.0.0</p>
+        </div>
+      </PageBody>
 
-            <div
-              onClick={handleDownloadJson}
-              className="p-3.5 rounded-[var(--radius-card)] bg-white-warm border border-border hover:border-olive/60 cursor-pointer transition-colors flex items-center justify-between"
-            >
-              <div>
-                <p className="text-sm font-semibold text-text-primary">Full Database Archive (JSON)</p>
-                <p className="text-xs text-text-secondary">Clients, measurements, orders, and version history</p>
-              </div>
-              <Download size={18} className="text-olive" />
-            </div>
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <TemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <ExportDialog open={exportOpen} onOpenChange={setExportOpen} />
+
+      <ConfirmDialog
+        open={resetOpen}
+        onOpenChange={setResetOpen}
+        title="Reset workspace data?"
+        description="Every client, order, payment and measurement in this workspace will be permanently deleted. Your sign-in and studio profile stay."
+        confirmWord="RESET"
+        confirmLabel="Reset workspace"
+        onConfirm={async () => {
+          await resetStore();
+          toast.success("Workspace data cleared");
+          window.location.reload();
+        }}
+      />
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="Delete your account?"
+        description="Your login, studio, clients, orders and measurements will be permanently deleted. Export your data first if you may need it."
+        confirmWord="DELETE"
+        confirmLabel="Delete account"
+        onConfirm={async () => {
+          await accountRepo.delete();
+          await signOut({ redirect: false });
+          clearBusinessCache();
+          router.push("/welcome");
+        }}
+      />
+    </>
+  );
+}
+
+// ------------------------------------------------------------- Profile
+
+function ProfileDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const { business } = useBusiness();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>{open && business && <ProfileForm business={business} onOpenChange={onOpenChange} />}</DialogContent>
+    </Dialog>
+  );
+}
+
+function ProfileForm({ business, onOpenChange }: { business: Business; onOpenChange: (o: boolean) => void }) {
+  const [name, setName] = React.useState(business.name);
+  const [owner, setOwner] = React.useState(business.ownerName);
+  const [country, setCountry] = React.useState(business.country);
+  const [currency, setCurrency] = React.useState(business.currency);
+  const [error, setError] = React.useState<string>();
+  const [saving, setSaving] = React.useState(false);
+
+  const save = async () => {
+    if (!name.trim()) {
+      setError("Your studio needs a name");
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await businessRepo.update({
+        name: name.trim(),
+        ownerName: owner.trim(),
+        country: country.trim(),
+        currency,
+      });
+      setCachedBusiness(updated);
+      toast.success("Studio profile saved");
+      onOpenChange(false);
+    } catch {
+      toast.error("Couldn't save your profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const knownCurrency = CURRENCIES.some(c => c.code === currency);
+
+  return (
+    <>
+        <DialogHeader>
+          <DialogTitle>Studio profile</DialogTitle>
+          <DialogDescription>Shown on shared measurement cards and across your workspace.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-5">
+          <Input
+            label="Studio name"
+            value={name}
+            onChange={e => {
+              setName(e.target.value);
+              setError(undefined);
+            }}
+            error={error}
+          />
+          <Input label="Your name" hint="Optional" value={owner} onChange={e => setOwner(e.target.value)} placeholder="Used in your greeting" />
+          <Input label="Country" hint="Optional" value={country} onChange={e => setCountry(e.target.value)} placeholder="e.g. Nigeria" />
+          <Select label="Currency" value={currency} onChange={e => setCurrency(e.target.value)}>
+            {!knownCurrency && <option value={currency}>{currency}</option>}
+            {CURRENCIES.map(c => (
+              <option key={c.code} value={c.code}>
+                {c.code} · {currencySymbol(c.code)} · {c.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={save} loading={saving}>
+            Save
+          </Button>
+        </DialogFooter>
+    </>
+  );
+}
+
+// ------------------------------------------------------------- Confirm
+
+interface ConfirmProps {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  title: string;
+  description: string;
+  confirmWord: string;
+  confirmLabel: string;
+  onConfirm: () => Promise<void>;
+}
+
+function ConfirmDialog(props: ConfirmProps) {
+  return (
+    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
+      <DialogContent>{props.open && <ConfirmBody {...props} />}</DialogContent>
+    </Dialog>
+  );
+}
+
+function ConfirmBody({ onOpenChange, title, description, confirmWord, confirmLabel, onConfirm }: ConfirmProps) {
+  const [typed, setTyped] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      await onConfirm();
+      onOpenChange(false);
+    } catch {
+      toast.error("Something went wrong. Nothing was deleted.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+        <DialogHeader>
+          <div className="mb-2 flex size-12 items-center justify-center rounded-full bg-danger-bg text-danger">
+            <Trash2 size={22} strokeWidth={1.75} />
           </div>
-
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setExportOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      </div>
-    </div>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <Input
+          label={
+            <span>
+              Type <span className="font-mono text-danger">{confirmWord}</span> to confirm
+            </span>
+          }
+          value={typed}
+          onChange={e => setTyped(e.target.value)}
+          autoCapitalize="characters"
+          autoComplete="off"
+        />
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button variant="destructive-filled" onClick={run} loading={busy} disabled={typed.trim().toUpperCase() !== confirmWord}>
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+    </>
   );
 }

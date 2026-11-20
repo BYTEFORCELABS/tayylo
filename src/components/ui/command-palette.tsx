@@ -3,181 +3,219 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
-import { cn } from "@/lib/utils";
-import { Avatar } from "./avatar";
-import { customerRepo, orderRepo } from "@/lib/data/store";
-import type { Customer, Order } from "@/types";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
-  Search, Users, ShoppingBag, Ruler, Plus, Settings, CalendarDays, UserPlus, ClipboardList,
+  Search,
+  Users,
+  ShoppingBag,
+  Ruler,
+  Settings,
+  CalendarDays,
+  UserPlus,
+  ClipboardList,
+  Shirt,
 } from "lucide-react";
+import { Avatar } from "./avatar";
+import { StatusTag } from "./tag";
+import { useCustomers, useOrders } from "@/lib/queries";
+import { displayStatus, garmentOf, isActive } from "@/lib/orders";
 
 interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * Global search: clients, orders, actions and pages in one place.
+ * Opened from the search buttons in the shell and with ⌘K / Ctrl+K.
+ */
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
+  return (
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[60] bg-ink/40 backdrop-blur-[2px] animate-fade-in" />
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          className="fixed inset-x-3 top-[max(12px,env(safe-area-inset-top))] z-[61] mx-auto max-w-xl animate-scale-in sm:top-[12vh] focus-visible:outline-none"
+        >
+          <DialogPrimitive.Title className="sr-only">Search Tayylo</DialogPrimitive.Title>
+          {open && <PaletteBody onOpenChange={onOpenChange} />}
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
+
+function PaletteBody({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
-  const [clients, setClients] = React.useState<Customer[]>([]);
-  const [orders, setOrders] = React.useState<Order[]>([]);
-  const inputRef = React.useRef<HTMLInputElement>(null);
+  const clientsQ = useCustomers();
+  const ordersQ = useOrders();
+  const clients = clientsQ.data ?? [];
+  const orders = ordersQ.data ?? [];
+  const loading = !clientsQ.data || !ordersQ.data ? clientsQ.status === "loading" || ordersQ.status === "loading" : false;
+  const failed = clientsQ.status === "error" || ordersQ.status === "error";
+  const [query, setQuery] = React.useState("");
 
-  React.useEffect(() => {
-    if (open) {
-      customerRepo.list().then(setClients);
-      orderRepo.list().then(setOrders);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [open]);
-
-  const navigate = (path: string) => {
+  const go = (path: string) => {
     onOpenChange(false);
     router.push(path);
   };
 
-  if (!open) return null;
+  const hasQuery = query.trim().length > 0;
+  const visibleOrders = hasQuery ? orders : orders.filter(isActive);
 
   return (
-    <div className="fixed inset-0 z-[60]">
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/40 animate-in fade-in-0"
-        onClick={() => onOpenChange(false)}
-      />
-      {/* Command panel */}
-      <div className="fixed left-1/2 top-[12%] -translate-x-1/2 w-full max-w-lg z-[61] px-4">
-        <Command
-          className="bg-white-warm rounded-[var(--radius-card)] border border-border shadow-[var(--shadow-dialog)] overflow-hidden animate-in fade-in-0 zoom-in-95"
-          label="Search Tayylo"
-        >
-          <div className="flex items-center gap-3 px-4 border-b border-border">
-            <Search size={18} className="text-text-tertiary shrink-0" strokeWidth={1.5} />
-            <Command.Input
-              ref={inputRef}
-              placeholder="Search clients, orders, or commands..."
-              className="flex-1 h-12 bg-transparent text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none"
-            />
-            <kbd className="hidden sm:inline-flex h-5 items-center px-1.5 rounded bg-beige-light text-[10px] font-medium text-text-tertiary">
-              ESC
-            </kbd>
-          </div>
+          <Command
+            label="Search Tayylo"
+            className="overflow-hidden rounded-[var(--radius-dialog)] bg-surface-raised shadow-[var(--shadow-dialog)]"
+          >
+            <div className="flex items-center gap-3 border-b border-divider px-5">
+              <Search size={20} strokeWidth={1.75} className="shrink-0 text-text-tertiary" />
+              <Command.Input
+                value={query}
+                onValueChange={setQuery}
+                autoFocus
+                placeholder="Search clients, orders or actions"
+                className="h-14 flex-1 bg-transparent text-[16px] text-ink placeholder:text-text-tertiary focus:outline-none"
+              />
+              <kbd className="hidden h-6 items-center rounded-[var(--radius-xs)] bg-surface-sunken px-2 text-[11px] font-semibold text-text-tertiary sm:inline-flex">
+                Esc
+              </kbd>
+            </div>
 
-          <Command.List className="max-h-[60vh] overflow-y-auto p-2">
-            <Command.Empty className="py-8 text-center text-sm text-text-secondary">
-              No results found.
-            </Command.Empty>
+            <Command.List className="max-h-[min(60vh,480px)] overflow-y-auto p-2 scroll-py-2">
+              {loading && (
+                <Command.Loading>
+                  <p className="px-3 py-6 text-center text-label text-text-tertiary">Loading your workspace…</p>
+                </Command.Loading>
+              )}
+              {failed && (
+                <p className="px-3 py-3 text-label text-danger">Couldn&apos;t load clients and orders. Actions still work.</p>
+              )}
+              <Command.Empty className="px-3 py-10 text-center">
+                <p className="text-[15px] font-semibold text-ink">No results</p>
+                <p className="mt-1 text-label text-text-tertiary">Try a client name, phone number or order number.</p>
+              </Command.Empty>
 
-            {/* Quick actions */}
-            <Command.Group heading="Actions" className="px-2 py-1">
-              <CommandItem onSelect={() => navigate("/clients?add=true")} icon={<UserPlus size={16} />}>
-                Add new client
-              </CommandItem>
-              <CommandItem onSelect={() => navigate("/clients")} icon={<Ruler size={16} />}>
-                Record measurements
-              </CommandItem>
-              <CommandItem onSelect={() => navigate("/orders?add=true")} icon={<ClipboardList size={16} />}>
-                Create new order
-              </CommandItem>
-            </Command.Group>
+              {clients.length > 0 && (
+                <Group heading="Clients">
+                  {(hasQuery ? clients : clients.slice(0, 5)).map(c => (
+                    <Item
+                      key={c.id}
+                      value={`client ${c.fullName} ${c.phones.join(" ")} ${c.email ?? ""}`}
+                      onSelect={() => go(`/clients/${c.id}`)}
+                      icon={<Avatar name={c.fullName} src={c.photoUrl} size="sm" />}
+                      meta={c.phones[0]}
+                    >
+                      {c.fullName}
+                    </Item>
+                  ))}
+                </Group>
+              )}
 
-            {/* Pages */}
-            <Command.Group heading="Navigate" className="px-2 py-1">
-              <CommandItem onSelect={() => navigate("/today")} icon={<CalendarDays size={16} />}>
-                Today
-              </CommandItem>
-              <CommandItem onSelect={() => navigate("/clients")} icon={<Users size={16} />}>
-                Clients
-              </CommandItem>
-              <CommandItem onSelect={() => navigate("/orders")} icon={<ShoppingBag size={16} />}>
-                Orders
-              </CommandItem>
-              <CommandItem onSelect={() => navigate("/settings")} icon={<Settings size={16} />}>
-                Settings
-              </CommandItem>
-            </Command.Group>
+              {visibleOrders.length > 0 && (
+                <Group heading={hasQuery ? "Orders" : "Active orders"}>
+                  {(hasQuery ? visibleOrders : visibleOrders.slice(0, 5)).map(o => (
+                    <Item
+                      key={o.id}
+                      value={`order ${o.number} ${o.customerName} ${garmentOf(o)}`}
+                      onSelect={() => go(`/orders/${o.id}`)}
+                      icon={
+                        o.items[0]?.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- fabric thumbnail (data URL / local)
+                          <img src={o.items[0].imageUrl} alt="" className="size-8 rounded-[var(--radius-xs)] object-cover" />
+                        ) : (
+                          <Shirt size={18} strokeWidth={1.75} />
+                        )
+                      }
+                      meta={<StatusTag status={displayStatus(o)} appearance="dot" />}
+                    >
+                      {garmentOf(o)} <span className="text-text-tertiary">· {o.customerName} · #{o.number}</span>
+                    </Item>
+                  ))}
+                </Group>
+              )}
 
-            {/* Clients */}
-            {clients.length > 0 && (
-              <Command.Group heading="Clients" className="px-2 py-1">
-                {clients.slice(0, 8).map(c => (
-                  <CommandItem
-                    key={c.id}
-                    onSelect={() => navigate(`/clients/${c.id}`)}
-                    icon={<Avatar name={c.fullName} size="sm" />}
-                    meta={c.phones[0]}
-                  >
-                    {c.fullName}
-                  </CommandItem>
-                ))}
-              </Command.Group>
-            )}
+              <Group heading="Actions">
+                <Item value="add new client" onSelect={() => go("/clients?add=true")} icon={<UserPlus size={18} strokeWidth={1.75} />}>
+                  Add client
+                </Item>
+                <Item value="record measurements measure" onSelect={() => go("/measure")} icon={<Ruler size={18} strokeWidth={1.75} />}>
+                  Record measurements
+                </Item>
+                <Item value="create new order" onSelect={() => go("/orders/new")} icon={<ClipboardList size={18} strokeWidth={1.75} />}>
+                  New order
+                </Item>
+              </Group>
 
-            {/* Orders */}
-            {orders.length > 0 && (
-              <Command.Group heading="Orders" className="px-2 py-1">
-                {orders.filter(o => !["delivered", "cancelled"].includes(o.statusName)).slice(0, 5).map(o => (
-                  <CommandItem
-                    key={o.id}
-                    onSelect={() => navigate(`/orders/${o.id}`)}
-                    icon={<ShoppingBag size={16} />}
-                    meta={o.statusName}
-                  >
-                    #{o.number} · {o.customerName}
-                  </CommandItem>
-                ))}
-              </Command.Group>
-            )}
-          </Command.List>
-        </Command>
-      </div>
-    </div>
+              <Group heading="Go to">
+                <Item value="today dashboard home" onSelect={() => go("/today")} icon={<CalendarDays size={18} strokeWidth={1.75} />}>
+                  Today
+                </Item>
+                <Item value="clients list" onSelect={() => go("/clients")} icon={<Users size={18} strokeWidth={1.75} />}>
+                  Clients
+                </Item>
+                <Item value="orders list" onSelect={() => go("/orders")} icon={<ShoppingBag size={18} strokeWidth={1.75} />}>
+                  Orders
+                </Item>
+                <Item value="settings account preferences" onSelect={() => go("/settings")} icon={<Settings size={18} strokeWidth={1.75} />}>
+                  Settings
+                </Item>
+              </Group>
+            </Command.List>
+          </Command>
   );
 }
 
-function CommandItem({
+function Group({ heading, children }: { heading: string; children: React.ReactNode }) {
+  return (
+    <Command.Group
+      heading={heading}
+      className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:text-overline [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-text-tertiary"
+    >
+      {children}
+    </Command.Group>
+  );
+}
+
+function Item({
   children,
   icon,
   meta,
+  value,
   onSelect,
 }: {
   children: React.ReactNode;
   icon?: React.ReactNode;
-  meta?: string;
+  meta?: React.ReactNode;
+  value: string;
   onSelect: () => void;
 }) {
   return (
     <Command.Item
+      value={value}
       onSelect={onSelect}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-button)] text-sm text-text-primary cursor-pointer transition-colors data-[selected=true]:bg-beige-light hover:bg-beige-light/50"
+      className="flex min-h-12 cursor-pointer items-center gap-3 rounded-[var(--radius-control)] px-3 py-2 text-[15px] text-ink transition-colors data-[selected=true]:bg-beige-light"
     >
-      {icon && (
-        <span className="text-text-tertiary shrink-0">{icon}</span>
-      )}
-      <span className="flex-1 truncate">{children}</span>
-      {meta && (
-        <span className="text-xs text-text-tertiary shrink-0">{meta}</span>
-      )}
+      {icon && <span className="flex size-8 shrink-0 items-center justify-center text-text-secondary">{icon}</span>}
+      <span className="min-w-0 flex-1 truncate">{children}</span>
+      {meta && <span className="shrink-0 text-caption text-text-tertiary">{meta}</span>}
     </Command.Item>
   );
 }
 
-// Hook for ⌘K
+/** ⌘K / Ctrl+K toggles the palette. */
 export function useCommandPalette() {
   const [open, setOpen] = React.useState(false);
-
   React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen(prev => !prev);
       }
-      if (e.key === "Escape") {
-        setOpen(false);
-      }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
-
   return { open, setOpen };
 }

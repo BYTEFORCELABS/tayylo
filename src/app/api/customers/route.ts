@@ -5,16 +5,30 @@ import { mediaMapForBusiness } from "@/lib/media";
 export async function GET(request: Request) {
   try {
     const { business } = await requireUserAndBusiness();
-    const q = new URL(request.url).searchParams.get("q")?.trim().toLowerCase() ?? "";
+    const url = new URL(request.url);
+    const q = url.searchParams.get("q")?.trim().toLowerCase() ?? "";
+    // Photos are stored inline (data URLs) and can be megabytes per client,
+    // so lists leave them out unless explicitly asked for (e.g. export).
+    const includeMedia = url.searchParams.get("include") === "media";
 
-    const [rows, mediaMap] = await Promise.all([
+    const [rows, mediaMap, lastMeasured] = await Promise.all([
       prisma.customer.findMany({
         where: { businessId: business.id },
         orderBy: { fullName: "asc" },
       }),
-      mediaMapForBusiness(business.id),
+      includeMedia ? mediaMapForBusiness(business.id) : Promise.resolve(null),
+      prisma.measurementSet.groupBy({
+        by: ["customerId"],
+        where: { businessId: business.id },
+        _max: { takenAt: true },
+      }),
     ]);
-    const customers = rows.map(c => ({ ...c, media: mediaMap[c.id] ?? [] }));
+    const lastMap = new Map(lastMeasured.map(r => [r.customerId, r._max.takenAt]));
+    const customers = rows.map(c => ({
+      ...c,
+      lastMeasuredAt: lastMap.get(c.id) ?? null,
+      ...(mediaMap ? { media: mediaMap[c.id] ?? [] } : {}),
+    }));
 
     if (!q) return Response.json(customers);
 

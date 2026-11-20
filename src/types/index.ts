@@ -25,7 +25,10 @@ export interface Customer {
   tags: string[];
   notes?: string;
   photoUrl?: string;
+  /** Only present when fetching a single client (or `include=media`). */
   media?: Media[];
+  /** Date of the newest measurement set; included in client lists. */
+  lastMeasuredAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -109,6 +112,8 @@ export interface Order {
   currency: string;
   payments: Payment[];
   fittings: Fitting[];
+  /** Fabric / style photos. Only returned when fetching a single order. */
+  media?: Media[];
 }
 
 export interface OrderItem {

@@ -1,177 +1,184 @@
 "use client";
 
 import * as React from "react";
+import { AlertCircle, WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "./button";
 
-// Skeleton
+// --------------------------------------------------------------- Skeleton
+
 interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: "text" | "circular" | "rectangular";
   width?: string | number;
   height?: string | number;
 }
 
-const Skeleton: React.FC<SkeletonProps> = ({
-  variant = "text",
-  width,
-  height,
-  className,
-  style,
-  ...props
-}) => {
-  return (
-    <div
-      className={cn(
-        "skeleton",
-        {
-          "h-4 rounded": variant === "text",
-          "rounded-full": variant === "circular",
-          "rounded-[var(--radius-card)]": variant === "rectangular",
-        },
-        className
-      )}
-      style={{
-        width: width ? (typeof width === "number" ? `${width}px` : width) : undefined,
-        height: height ? (typeof height === "number" ? `${height}px` : height) : undefined,
-        ...style,
-      }}
-      aria-hidden="true"
-      {...props}
-    />
-  );
-};
-Skeleton.displayName = "Skeleton";
+const Skeleton: React.FC<SkeletonProps> = ({ variant = "text", width, height, className, style, ...props }) => (
+  <div
+    className={cn(
+      "skeleton",
+      {
+        "h-4 rounded-full": variant === "text",
+        "rounded-full": variant === "circular",
+        "rounded-[var(--radius-card)]": variant === "rectangular",
+      },
+      className
+    )}
+    style={{
+      width: typeof width === "number" ? `${width}px` : width,
+      height: typeof height === "number" ? `${height}px` : height,
+      ...style,
+    }}
+    aria-hidden="true"
+    {...props}
+  />
+);
 
-// Empty State
+/** Wrap skeleton blocks so screen readers hear one "Loading" instead of nothing. */
+function LoadingRegion({ label = "Loading", className, children }: { label?: string; className?: string; children: React.ReactNode }) {
+  return (
+    // Fades in after a short delay so quick loads never flash a skeleton.
+    <div role="status" aria-live="polite" className={cn("animate-fade-in [animation-delay:180ms]", className)}>
+      <span className="sr-only">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------- EmptyState
+
 interface EmptyStateProps {
   icon?: React.ReactNode;
   title: string;
-  description: string;
+  description?: React.ReactNode;
   action?: React.ReactNode;
+  /** `inset` sits inside a card/tab; `page` fills a screen. */
+  variant?: "page" | "inset";
+  className?: string;
 }
 
-const EmptyState: React.FC<EmptyStateProps> = ({
-  icon,
-  title,
-  description,
-  action,
-}) => {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      {icon && (
-        <div className="w-12 h-12 rounded-full bg-beige-light flex items-center justify-center text-text-tertiary mb-4">
-          {icon}
-        </div>
-      )}
-      <h3 className="font-serif text-lg font-medium text-text-primary mb-2">
-        {title}
-      </h3>
-      <p className="text-sm text-text-secondary max-w-xs mb-6">
-        {description}
-      </p>
-      {action}
-    </div>
-  );
-};
-EmptyState.displayName = "EmptyState";
+const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description, action, variant = "page", className }) => (
+  <div
+    className={cn(
+      "flex flex-col items-center text-center animate-rise-in",
+      variant === "page" ? "py-16 px-6" : "rounded-[var(--radius-card)] border border-dashed border-border-strong/70 px-6 py-10",
+      className
+    )}
+  >
+    {icon && (
+      <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-surface-sunken text-text-secondary [&_svg]:size-6">
+        {icon}
+      </div>
+    )}
+    <h3 className="text-headline text-ink">{title}</h3>
+    {description && <p className="mt-1.5 max-w-xs text-label text-text-secondary">{description}</p>}
+    {action && <div className="mt-5">{action}</div>}
+  </div>
+);
 
-// Error State
+// ------------------------------------------------------------- ErrorState
+
 interface ErrorStateProps {
   title?: string;
   description?: string;
   onRetry?: () => void;
+  className?: string;
 }
 
 const ErrorState: React.FC<ErrorStateProps> = ({
   title = "Something went wrong",
-  description = "We couldn\u2019t load this content. Check your connection and try again.",
+  description = "We couldn’t load this. Check your connection and try again.",
   onRetry,
-}) => {
+  className,
+}) => (
+  <div role="alert" className={cn("flex flex-col items-center py-16 px-6 text-center animate-rise-in", className)}>
+    <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-danger-bg text-danger">
+      <AlertCircle size={24} strokeWidth={1.75} />
+    </div>
+    <h3 className="text-headline text-ink">{title}</h3>
+    <p className="mt-1.5 max-w-xs text-label text-text-secondary">{description}</p>
+    {onRetry && (
+      <Button className="mt-5" variant="secondary" onClick={onRetry}>
+        Try again
+      </Button>
+    )}
+  </div>
+);
+
+// ---------------------------------------------------------- Offline banner
+
+function useOnline() {
+  const [online, setOnline] = React.useState(true);
+  React.useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  return online;
+}
+
+/** Self-managing: renders only while the browser reports it is offline. */
+const OfflineBanner: React.FC<{ force?: boolean }> = ({ force }) => {
+  const online = useOnline();
+  if (online && !force) return null;
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="w-12 h-12 rounded-full bg-danger-bg flex items-center justify-center text-danger mb-4">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-      </div>
-      <h3 className="font-serif text-lg font-medium text-text-primary mb-2">
-        {title}
-      </h3>
-      <p className="text-sm text-text-secondary max-w-xs mb-6">
-        {description}
-      </p>
-      {onRetry && (
-        <button
-          onClick={onRetry}
-          className="h-10 px-4 rounded-[var(--radius-button)] bg-olive text-white-warm text-sm font-medium hover:bg-olive-deep transition-colors active:scale-[0.98]"
-        >
-          Try again
-        </button>
-      )}
+    <div
+      role="status"
+      className="fixed left-1/2 top-[max(12px,env(safe-area-inset-top))] z-[70] -translate-x-1/2 animate-rise-in flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-label font-medium text-text-inverse shadow-[var(--shadow-float)]"
+    >
+      <WifiOff size={16} strokeWidth={1.75} />
+      You&apos;re offline. Changes won&apos;t save until you reconnect.
     </div>
   );
 };
-ErrorState.displayName = "ErrorState";
 
-// Offline Banner
-const OfflineBanner: React.FC = () => {
-  return (
-    <div className="flex items-center gap-2 px-4 py-2 bg-beige-light text-text-secondary text-xs">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="2" y1="2" x2="22" y2="22" />
-        <path d="M8.5 16.5a5 5 0 017 0" />
-        <path d="M2 8.82a15 15 0 014.17-2.65" />
-        <path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76" />
-        <path d="M16.85 11.25a10 10 0 012.22 1.68" />
-        <path d="M5 12.86a10 10 0 015.04-2.54" />
-        <line x1="12" y1="20" x2="12.01" y2="20" />
-      </svg>
-      <span>Saved on this device. Will sync when you&apos;re online.</span>
-    </div>
-  );
-};
-OfflineBanner.displayName = "OfflineBanner";
+// ---------------------------------------------------------- Skeleton sets
 
-// Loading State (client list skeleton)
-const ClientListSkeleton: React.FC<{ count?: number }> = ({ count = 5 }) => {
-  return (
-    <div className="flex flex-col">
+const ListSkeleton: React.FC<{ count?: number; avatar?: boolean }> = ({ count = 5, avatar = true }) => (
+  <LoadingRegion>
+    <div className="overflow-hidden rounded-[var(--radius-card)] border border-border/70 bg-surface divide-y divide-divider">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 px-4 py-3 border-b border-border last:border-b-0">
-          <Skeleton variant="circular" width={40} height={40} />
-          <div className="flex-1 flex flex-col gap-1.5">
-            <Skeleton width="60%" height={14} />
-            <Skeleton width="40%" height={12} />
+        <div key={i} className="flex min-h-[64px] items-center gap-3.5 px-4 py-3.5">
+          {avatar && <Skeleton variant="circular" width={40} height={40} />}
+          <div className="flex flex-1 flex-col gap-2">
+            <Skeleton width={`${55 - (i % 3) * 10}%`} height={14} />
+            <Skeleton width="35%" height={12} />
           </div>
-          <Skeleton width={80} height={12} />
+          <Skeleton width={56} height={12} />
         </div>
       ))}
     </div>
-  );
-};
-ClientListSkeleton.displayName = "ClientListSkeleton";
+  </LoadingRegion>
+);
 
-// Measurement grid skeleton
-const MeasurementGridSkeleton: React.FC<{ count?: number }> = ({ count = 8 }) => {
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4">
+const ClientListSkeleton = ListSkeleton;
+
+const MeasurementGridSkeleton: React.FC<{ count?: number }> = ({ count = 8 }) => (
+  <LoadingRegion>
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] border border-border/70 bg-divider sm:grid-cols-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="flex flex-col gap-2 p-3 rounded-[var(--radius-card)] border border-border bg-white-warm">
+        <div key={i} className="flex flex-col gap-2 bg-surface p-4">
           <Skeleton width="50%" height={12} />
-          <Skeleton width="70%" height={28} />
+          <Skeleton width="40%" height={24} />
         </div>
       ))}
     </div>
-  );
-};
-MeasurementGridSkeleton.displayName = "MeasurementGridSkeleton";
+  </LoadingRegion>
+);
 
 export {
   Skeleton,
+  LoadingRegion,
   EmptyState,
   ErrorState,
   OfflineBanner,
+  ListSkeleton,
   ClientListSkeleton,
   MeasurementGridSkeleton,
+  useOnline,
 };

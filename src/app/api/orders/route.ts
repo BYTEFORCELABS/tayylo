@@ -7,11 +7,12 @@ const ORDER_INCLUDE = {
   fittings: { include: { adjustments: true } },
 } as const;
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { business } = await requireUserAndBusiness();
+    const customerId = new URL(request.url).searchParams.get("customerId") || undefined;
     const orders = await prisma.order.findMany({
-      where: { businessId: business.id },
+      where: { businessId: business.id, ...(customerId ? { customerId } : {}) },
       include: ORDER_INCLUDE,
       orderBy: { dueAt: "asc" },
     });
