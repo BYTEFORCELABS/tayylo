@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
-import { BackButton } from "@/components/ui/page";
 
 /**
  * Shared frame for sign-in, sign-up, password reset and onboarding.
@@ -22,23 +21,39 @@ export function AuthLayout({
   quote?: string;
   /** Replaces the logo row (e.g. onboarding progress). */
   top?: React.ReactNode;
-  /** Shows the standard back button before the logo. */
+  /** Kept so existing callers compile; auth screens no longer show a back button. */
   onBack?: () => void;
   backLabel?: string;
 }) {
+  void onBack;
+  void backLabel;
   return (
     <div className="min-h-[100dvh] bg-canvas lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="flex min-h-[100dvh] flex-col px-6 pt-safe sm:px-10">
-        <div className="mx-auto flex h-20 w-full max-w-[400px] items-center">
+        <div className="mx-auto flex h-20 w-full max-w-[400px] items-center justify-center">
           {top ?? (
-            <div className="flex items-center gap-3">
-              {onBack && <BackButton onClick={onBack} label={backLabel} />}
-              <Link href="/welcome" aria-label="Tayylo">
-                <Logo height={26} priority />
-              </Link>
-            </div>
+            <Link href="/welcome" aria-label="Tayylo">
+              <Logo height={26} priority />
+            </Link>
           )}
         </div>
+        {/* A tailor's tape: quiet ruler ticks that tie the screen to the craft. */}
+        {!top && (
+          <div aria-hidden className="mx-auto w-full max-w-[400px] lg:hidden">
+            <div
+              className="h-2.5 w-full text-olive/35"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px 8px), repeating-linear-gradient(90deg, currentColor 0 1.5px, transparent 1.5px 40px)",
+                backgroundSize: "100% 40%, 100% 100%",
+                backgroundPosition: "0 0, 0 0",
+                backgroundRepeat: "no-repeat",
+                maskImage: "linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent)",
+                WebkitMaskImage: "linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent)",
+              }}
+            />
+          </div>
+        )}
         <main className="mx-auto flex w-full max-w-[400px] flex-1 flex-col pb-[max(24px,env(safe-area-inset-bottom))] pt-4 lg:justify-center lg:pt-0">
           {children}
         </main>

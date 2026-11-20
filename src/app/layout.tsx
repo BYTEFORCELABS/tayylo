@@ -11,10 +11,7 @@ export const metadata: Metadata = {
   description:
     "Find any client in two seconds, record measurements at the speed of a tape, and keep every measurement as a dated version.",
   manifest: "/manifest.json",
-  icons: {
-    icon: "/icon_olive.png",
-    apple: "/icon_beige.png",
-  },
+  // Favicons come from src/app/favicon.ico, icon.png and apple-icon.png.
 };
 
 export const viewport: Viewport = {
