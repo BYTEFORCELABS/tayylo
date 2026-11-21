@@ -240,9 +240,9 @@ function MeasurePageInner() {
           eyebrow="Record measurements · Step 1 of 3"
           title="Who are you measuring?"
           back={true}
-          width="sm"
+          width="md"
         />
-        <PageBody width="sm" className="pb-10">
+        <PageBody width="md" className="pb-10">
           <ClientPicker
             clients={clients}
             loading={clientsLoading}
