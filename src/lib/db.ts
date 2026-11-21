@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 // Prisma 7 has no built-in query engine — it always connects through a
@@ -9,13 +9,19 @@ const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 
 // Standard Next.js dev-mode singleton — without this, hot-reload would
 // create a fresh PrismaClient (and a fresh connection pool) on every edit.
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; prismaSchema?: string };
 
-// In dev, a client cached before `prisma generate` (new models added) would
-// lack the new tables, so rebuild it when a current model is missing.
-const cached = globalForPrisma.prisma && "stylePost" in globalForPrisma.prisma ? globalForPrisma.prisma : undefined;
+// In dev, a client cached before `prisma generate` would reject new tables
+// *and* new columns, so the cache is keyed by every model's field list and
+// rebuilt whenever the generated schema changes.
+const schemaKey = Object.entries(Prisma)
+  .filter(([k]) => k.endsWith("ScalarFieldEnum"))
+  .map(([k, v]) => `${k}:${Object.keys(v as object).join(",")}`)
+  .join("|");
+const cached = globalForPrisma.prismaSchema === schemaKey ? globalForPrisma.prisma : undefined;
 export const prisma = cached ?? new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaSchema = schemaKey;
 }
