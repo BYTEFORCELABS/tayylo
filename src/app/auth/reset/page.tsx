@@ -2,7 +2,8 @@
 
 import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, Eye, EyeOff, AlertCircle, CheckCircle2, LinkIcon } from "lucide-react";
+import { Lock, Eye, EyeOff, AlertCircle, LinkIcon } from "lucide-react";
+import { SuccessMark } from "@/components/brand/success-mark";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,9 +70,7 @@ function ResetPasswordPageInner() {
   if (done) {
     return (
       <AuthLayout onBack={() => router.push("/auth?mode=signin")} backLabel="Back to sign in">
-        <div className="mb-5 flex size-14 items-center justify-center rounded-full bg-success-bg text-success animate-scale-in">
-          <CheckCircle2 size={26} strokeWidth={1.75} />
-        </div>
+        <SuccessMark size={72} className="mb-5" label="Password updated" />
         <h1 className="text-title text-ink">Password updated</h1>
         <p className="mt-2 text-body text-text-secondary">Sign in with your new password to continue.</p>
         <Button size="lg" block className="mt-8" onClick={() => router.push("/auth?mode=signin")}>

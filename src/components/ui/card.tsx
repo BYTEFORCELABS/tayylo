@@ -76,9 +76,9 @@ const tick = (w: number, h: number) =>
   `linear-gradient(to right, currentColor ${w}px, transparent ${w}px) ${ORIGIN}px 0 / ${UNIT / (h === 6 ? 10 : h === 10 ? 2 : 1)}px ${h}px repeat-x`;
 
 /** Tailor's tape-measure edge along the top of a panel. Purely decorative. */
-function TapeRule() {
+export function TapeRule({ className }: { className?: string }) {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-7 select-none overflow-hidden opacity-35">
+    <div aria-hidden className={cn("pointer-events-none absolute inset-x-0 top-0 h-7 select-none overflow-hidden opacity-35", className)}>
       <div className="absolute inset-0" style={{ background: [tick(1, 14), tick(1, 10), tick(1, 6)].join(", ") }} />
       <div className="tabular absolute top-[16px] flex text-[9.5px] font-semibold leading-none" style={{ left: ORIGIN + 3 }}>
         {Array.from({ length: 40 }, (_, i) => (

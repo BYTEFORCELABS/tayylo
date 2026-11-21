@@ -1,7 +1,8 @@
 "use client";
 
 import { Toaster as SonnerToaster } from "sonner";
-import { CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { AlertCircle, Info } from "lucide-react";
+import { SuccessMark } from "@/components/brand/success-mark";
 
 /** Quiet ink pill toasts — reassuring, never loud. */
 export function Toaster() {
@@ -9,7 +10,7 @@ export function Toaster() {
     <SonnerToaster
       position="top-center"
       icons={{
-        success: <CheckCircle2 size={18} strokeWidth={2} className="text-[#B7C49A]" />,
+        success: <SuccessMark size={20} tone="light" animated={false} />,
         error: <AlertCircle size={18} strokeWidth={2} className="text-[#F0B4A6]" />,
         info: <Info size={18} strokeWidth={2} />,
       }}

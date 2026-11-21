@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { House, Users, Plus, ShoppingBag, Settings, Search, Compass, UserRound, type LucideIcon } from "lucide-react";
+import { House, Users, Plus, ShoppingBag, Settings, Search, Compass, UserRound, IdCard, ShoppingCart, CircleUserRound, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
@@ -15,6 +15,14 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
 }
+
+/** Phone tab bar wording and icons (the desktop sidebar keeps the full names). */
+const MOBILE_TAB: Record<string, { label: string; icon: LucideIcon }> = {
+  today: { label: "Home", icon: House },
+  clients: { label: "Contact", icon: IdCard },
+  orders: { label: "Orders", icon: ShoppingCart },
+  settings: { label: "Profile", icon: CircleUserRound },
+};
 
 export const TAILOR_NAV: NavItem[] = [
   { key: "today", label: "Home", href: "/today", icon: House },
@@ -56,58 +64,85 @@ export function FloatingNav({ active, onCreate, items = TAILOR_TABS }: FloatingN
   const left = onCreate ? items.slice(0, 2) : items;
   const right = onCreate ? items.slice(2) : [];
 
+  // The bar is cut away in a smooth groove around the raised centre button.
+  // Shadow comes from a drop-shadow filter on the wrapper so it follows the cut-out.
+  const groove = "radial-gradient(circle 41px at 50% 4px, transparent 40px, #000 41px)";
+
   return (
     <nav
       aria-label="Main"
       className="fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] lg:hidden pointer-events-none print:hidden"
     >
-      <div className="pointer-events-auto relative mx-auto flex h-[68px] max-w-md items-center rounded-full border border-border/80 bg-surface-raised/95 px-2 shadow-[var(--shadow-float)] backdrop-blur-xl">
-        {left.map(item => (
-          <TabButton key={item.key} item={item} active={active === item.key} />
-        ))}
+      <div className="relative mx-auto max-w-md drop-shadow-[0_10px_22px_rgba(30,32,25,0.16)]">
+        <div
+          className="pointer-events-auto flex h-[64px] items-center rounded-full bg-surface-raised px-3"
+          style={onCreate ? { WebkitMaskImage: groove, maskImage: groove } : undefined}
+        >
+          {left.map(item => (
+            <TabButton key={item.key} item={item} active={active === item.key} />
+          ))}
+
+          {/* Space the centre button sits in */}
+          {onCreate && <div className="w-[84px] shrink-0" aria-hidden />}
+
+          {right.map(item => (
+            <TabButton key={item.key} item={item} active={active === item.key} />
+          ))}
+        </div>
 
         {onCreate && (
-        <div className="flex w-[72px] shrink-0 justify-center">
           <motion.button
             type="button"
             onClick={onCreate}
             whileTap={{ scale: 0.92 }}
             aria-label="Create: add client, record measurements or new order"
-            className="-mt-7 flex size-14 items-center justify-center rounded-full bg-olive text-text-inverse shadow-[var(--shadow-fab)] ring-4 ring-canvas transition-colors hover:bg-olive-deep"
+            className="fab-raised pointer-events-auto absolute left-1/2 top-[4px] flex size-[64px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-olive text-text-inverse transition-colors hover:bg-olive-deep"
           >
-            <Plus size={26} strokeWidth={2} />
+            <Plus size={28} strokeWidth={2.25} />
           </motion.button>
-        </div>
         )}
-
-        {right.map(item => (
-          <TabButton key={item.key} item={item} active={active === item.key} />
-        ))}
       </div>
     </nav>
   );
 }
 
 function TabButton({ item, active }: { item: NavItem; active: boolean }) {
-  const Icon = item.icon;
+  const tab = MOBILE_TAB[item.key];
+  const Icon = tab?.icon ?? item.icon;
+  const label = tab?.label ?? item.label;
   return (
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
+      aria-label={label}
       className={cn(
         "relative flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-full",
         "transition-colors duration-[var(--duration-fast)]",
-        active ? "text-ink" : "text-text-tertiary hover:text-text-secondary"
+        active ? "text-[#3F8A2A]" : "text-text-secondary hover:text-ink"
       )}
     >
-      <Icon size={22} strokeWidth={active ? 2 : 1.75} />
-      <span className={cn("text-[10.5px] leading-none", active ? "font-semibold" : "font-medium")}>{item.label}</span>
+      {/* The selected tab turns green, on a soft green pill, so it's obvious where you are */}
+      <span className="relative flex h-8 w-14 items-center justify-center">
+        {active && (
+          <motion.span
+            layoutId="nav-active-pill"
+            transition={{ type: "spring", stiffness: 500, damping: 36 }}
+            className="absolute inset-0 rounded-full bg-[#3F8A2A]/12"
+          />
+        )}
+        <Icon size={23} strokeWidth={active ? 2.1 : 1.6} className="relative" />
+      </span>
+      {/* Only the current tab is labelled, like the design */}
       {active && (
         <motion.span
-          layoutId="nav-active-dot"
+          layoutId="nav-active-label"
+          initial={{ opacity: 0, y: 2 }}
+          animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 500, damping: 36 }}
-          className="absolute bottom-1.5 size-1 rounded-full bg-olive"
-        />
+          className="text-[11px] font-semibold leading-none"
+        >
+          {label}
+        </motion.span>
       )}
     </Link>
   );

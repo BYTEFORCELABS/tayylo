@@ -141,7 +141,7 @@ export function PageHeader({
             <div
               className={cn(
                 "flex items-center justify-between gap-3 transition-[padding] duration-[var(--duration-normal)] ease-[var(--ease-out)]",
-                collapsed ? "py-3" : "pt-5 pb-4 lg:pt-8"
+                collapsed ? "py-3" : "pt-4 pb-3 lg:pt-8 lg:pb-4"
               )}
             >
               <div className="flex min-w-0 items-center gap-3">
@@ -150,7 +150,7 @@ export function PageHeader({
                   {eyebrow && (
                     <p
                       className={cn(
-                        "truncate text-label text-text-tertiary transition-[max-height,opacity,margin] duration-[var(--duration-normal)]",
+                        "truncate text-label text-text-tertiary transition-[max-height,opacity,margin] duration-[var(--duration-normal)] max-lg:hidden",
                         collapsed ? "mb-0 max-h-0 opacity-0" : "mb-1 max-h-6 opacity-100"
                       )}
                     >
@@ -160,7 +160,7 @@ export function PageHeader({
                   <h1
                     className={cn(
                       "truncate font-semibold tracking-tight text-ink transition-[font-size,line-height] duration-[var(--duration-normal)] ease-[var(--ease-out)]",
-                      collapsed ? "text-[19px] leading-7" : "text-title"
+                      collapsed ? "text-[19px] leading-7" : "text-[22px] font-medium leading-8 lg:text-title lg:font-semibold"
                     )}
                   >
                     {title}
@@ -168,7 +168,7 @@ export function PageHeader({
                   {description && (
                     <p
                       className={cn(
-                        "truncate text-label text-text-secondary transition-[max-height,opacity,margin] duration-[var(--duration-normal)]",
+                        "truncate text-label text-text-secondary transition-[max-height,opacity,margin] duration-[var(--duration-normal)] max-lg:hidden",
                         collapsed ? "mt-0 max-h-0 opacity-0" : "mt-1 max-h-6 opacity-100"
                       )}
                     >

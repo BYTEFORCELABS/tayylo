@@ -24,10 +24,12 @@ interface MeasurementIconProps {
   size?: number;
   /** Draw on a soft rounded tile. */
   tile?: boolean;
+  /** Load immediately (for off-screen copies rendered to an image). */
+  eager?: boolean;
   className?: string;
 }
 
-export function MeasurementIcon({ fieldKey, label, templateName, size = 32, tile = false, className }: MeasurementIconProps) {
+export function MeasurementIcon({ fieldKey, label, templateName, size = 32, tile = false, eager = false, className }: MeasurementIconProps) {
   const art = resolveMeasurementArt({ key: fieldKey, label, templateName });
   const icon = art ? (
     // eslint-disable-next-line @next/next/no-img-element -- tiny static SVG, no optimisation needed
@@ -36,7 +38,7 @@ export function MeasurementIcon({ fieldKey, label, templateName, size = 32, tile
       alt=""
       width={size}
       height={size}
-      loading="lazy"
+      loading={eager ? "eager" : "lazy"}
       draggable={false}
       className="shrink-0 select-none"
       style={{ width: size, height: size }}

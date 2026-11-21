@@ -90,10 +90,11 @@ interface StatusTagProps extends React.HTMLAttributes<HTMLSpanElement> {
   label?: string;
   /** `pill` = tinted background; `dot` = text with a dot only (dense lists). */
   appearance?: "pill" | "dot";
+  size?: "sm" | "md";
 }
 
 const StatusTag = React.forwardRef<HTMLSpanElement, StatusTagProps>(
-  ({ status, label, appearance = "pill", className, ...props }, ref) => {
+  ({ status, label, appearance = "pill", size = "md", className, ...props }, ref) => {
     const key = status === "overdue" ? "overdue" : (normalizeStatus(status) ?? "");
     const t = toneClasses[statusTone[key] ?? "neutral"];
     const text = label ?? statusLabel(status);
@@ -101,8 +102,9 @@ const StatusTag = React.forwardRef<HTMLSpanElement, StatusTagProps>(
       <span
         ref={ref}
         className={cn(
-          "inline-flex items-center gap-1.5 whitespace-nowrap text-caption font-semibold",
-          appearance === "pill" && cn("h-6 rounded-full px-2.5", t.bg),
+          "inline-flex items-center gap-1.5 whitespace-nowrap font-semibold",
+          size === "sm" ? "text-[11px]" : "text-caption",
+          appearance === "pill" && cn("rounded-full", size === "sm" ? "h-5 px-2" : "h-6 px-2.5", t.bg),
           t.text,
           className
         )}

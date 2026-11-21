@@ -17,6 +17,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Logo } from "@/components/brand/logo";
+import { MeasurementIcon } from "@/components/brand/measurement-icon";
+import { TapeRule } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { formatDate, formatMeasurement, unitLabel } from "@/lib/format";
 import { shareText } from "@/lib/measurements";
 import type { MeasurementSet, UnitSystem } from "@/types";
@@ -51,14 +54,13 @@ export function ShareMeasurementsDialog({ open, onOpenChange, clientName, phone,
 
   const dateLabel = formatDate(set.takenAt);
   const text = shareText({ businessName, clientName, set, unit, dateLabel });
-  const u = unitLabel(unit);
   const takenBy = businessName?.trim() || "your tailor";
   const fileName = `${clientName.replace(/[^\w]+/g, "-").replace(/^-|-$/g, "")}-measurements`;
 
   const makeImage = async () => {
     if (!cardRef.current) throw new Error("Card not ready");
     const { toBlob } = await import("html-to-image");
-    const blob = await toBlob(cardRef.current, { pixelRatio: 2, backgroundColor: "#FBFAF7", cacheBust: true });
+    const blob = await toBlob(cardRef.current, { pixelRatio: 2, backgroundColor: "#F3F1EA", cacheBust: true, width: 640 });
     if (!blob) throw new Error("Couldn't create the image");
     return new File([blob], `${fileName}.png`, { type: "image/png" });
   };
@@ -120,39 +122,14 @@ export function ShareMeasurementsDialog({ open, onOpenChange, clientName, phone,
           <DialogDescription>Sent as a branded image card, with the text included.</DialogDescription>
         </DialogHeader>
 
-        {/* The card below is exactly what the recipient receives as an image */}
+        {/* Preview — the image is rendered from the fixed-width copy below */}
         <div className="-mx-1 max-h-[52dvh] overflow-y-auto px-1">
-          <div ref={cardRef} className="overflow-hidden rounded-[var(--radius-card)] border border-border bg-surface">
-            <div className="h-1.5 bg-olive" />
-            <div className="p-5">
-              <div className="flex items-center justify-between gap-3">
-                <Logo height={22} />
-                <span className="text-overline uppercase text-text-tertiary">Measurement card</span>
-              </div>
-
-              <div className="mt-5">
-                <p className="text-headline text-ink">{clientName}</p>
-                <p className="mt-1 text-label text-text-secondary">
-                  {set.templateName} measurements taken by <span className="font-semibold text-ink">{takenBy}</span> on {dateLabel}.
-                </p>
-              </div>
-
-              <dl className="mt-4 grid grid-cols-1 gap-x-6 border-t border-divider min-[400px]:grid-cols-2">
-                {set.values.map(v => (
-                  <div key={v.fieldKey} className="flex items-baseline justify-between gap-2 border-b border-divider py-2">
-                    <dt className="truncate text-label text-text-secondary">{v.labelSnapshot}</dt>
-                    <dd className="measurement-value shrink-0 text-label font-semibold text-ink">
-                      {formatMeasurement(v.valueMm, unit)} <span className="font-medium text-text-tertiary">{u}</span>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-
-              <p className="mt-4 flex items-center gap-2 text-caption text-text-tertiary">
-                <Logo variant="symbol" height={14} />
-                Measured and recorded with Tayylo
-              </p>
-            </div>
+          <MeasurementCardArt clientName={clientName} takenBy={takenBy} dateLabel={dateLabel} set={set} unit={unit} />
+        </div>
+        {/* Off-screen, fixed-width card used for the image so it looks the same from any device */}
+        <div aria-hidden className="pointer-events-none fixed top-0 -left-[10000px]">
+          <div ref={cardRef} style={{ width: 640 }}>
+            <MeasurementCardArt clientName={clientName} takenBy={takenBy} dateLabel={dateLabel} set={set} unit={unit} wide />
           </div>
         </div>
 
@@ -172,5 +149,74 @@ export function ShareMeasurementsDialog({ open, onOpenChange, clientName, phone,
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ------------------------------------------------------------ card art
+
+/** The branded measurement card: shown as a preview and rendered to the shared image. */
+function MeasurementCardArt({
+  clientName,
+  takenBy,
+  dateLabel,
+  set,
+  unit,
+  wide,
+}: {
+  clientName: string;
+  takenBy: string;
+  dateLabel: string;
+  set: MeasurementSet;
+  unit: UnitSystem;
+  /** Fixed two-column layout for the exported image. */
+  wide?: boolean;
+}) {
+  const u = unitLabel(unit);
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-border bg-surface text-ink">
+      {/* Brand band with the tape-measure edge */}
+      <div className="relative overflow-hidden bg-panel px-6 pt-9 pb-5 text-text-inverse">
+        <TapeRule className="h-6 opacity-30" />
+        <div className="flex items-center justify-between gap-4">
+          <Logo tone="cream" height={wide ? 26 : 22} priority={wide} />
+          <span className="whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-[0.18em] text-text-on-panel-muted">
+            Measurement card
+          </span>
+        </div>
+      </div>
+
+      <div className={cn("px-6 pt-5 pb-6", wide && "px-7")}>
+        <p className={cn("font-semibold leading-tight tracking-tight", wide ? "text-[28px]" : "text-[22px]")}>{clientName}</p>
+        <p className="mt-1.5 text-label leading-relaxed text-text-secondary">
+          {set.templateName} measurements taken by <span className="font-semibold text-ink">{takenBy}</span> on {dateLabel}.
+        </p>
+
+        <ul className={cn("mt-5 grid gap-2", wide ? "grid-cols-2" : "grid-cols-1 min-[420px]:grid-cols-2")}>
+          {set.values.map(v => (
+            <li
+              key={v.fieldKey}
+              className="flex items-center gap-3 rounded-[14px] border border-border/70 bg-surface-raised px-3 py-2.5"
+            >
+              <MeasurementIcon fieldKey={v.fieldKey} label={v.labelSnapshot} templateName={set.templateName} size={30} eager={wide} />
+              <span className="min-w-0 flex-1 text-[13.5px] leading-snug text-text-secondary">{v.labelSnapshot}</span>
+              <span className="shrink-0 whitespace-nowrap text-right">
+                <span className="measurement-value text-[19px] font-semibold text-ink">{formatMeasurement(v.valueMm, unit)}</span>
+                <span className="ml-1 text-[12px] font-medium text-text-tertiary">{u}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-divider pt-4">
+          <p className="flex items-center gap-2 text-caption text-text-tertiary">
+            <Logo variant="symbol" height={14} priority={wide} />
+            Measured and recorded with Tayylo
+          </p>
+          <p className="tabular whitespace-nowrap text-caption text-text-tertiary">
+            {set.values.length} measurements
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

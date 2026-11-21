@@ -435,50 +435,58 @@ export default function OrderDetailPage() {
               }
             />
           ) : (
-            <List>
+            <ul className="divide-y divide-divider overflow-hidden rounded-[var(--radius-card)] border border-border/70 bg-surface">
               {[...order.fittings]
                 .sort((a, b) => b.number - a.number)
-                .map(f => (
-                  <ListItem
-                    key={f.id}
-                    leading={
-                      <IconTile tone={f.outcome === "approved" ? "success" : "warning"}>
-                        {f.outcome === "approved" ? <Check /> : <Scissors />}
+                .map(f => {
+                  const approved = f.outcome === "approved";
+                  return (
+                    <li key={f.id} className="flex gap-3.5 px-4 py-4 sm:px-5">
+                      <IconTile tone={approved ? "success" : "warning"} className="mt-0.5">
+                        {approved ? <Check /> : <Scissors />}
                       </IconTile>
-                    }
-                    title={`Fitting ${f.number}`}
-                    subtitle={formatDate(f.fittedAt)}
-                    trailing={
-                      <span className="flex items-center gap-1">
-                        <Tag size="sm" variant={f.outcome === "approved" ? "success" : "warning"}>
-                          {f.outcome === "approved" ? "Approved" : f.outcome === "skipped" ? "Skipped" : "Adjustments"}
-                        </Tag>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="-mr-2 size-9 text-text-tertiary hover:text-danger"
-                          aria-label={`Delete fitting ${f.number}`}
-                          onClick={() => setDeletingFitting(f)}
-                        >
-                          <Trash2 size={17} />
-                        </Button>
-                      </span>
-                    }
-                  >
-                    {f.adjustments.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {f.adjustments.map(a => (
-                          <Tag key={a.fieldKey} size="sm" variant="beige" className="tabular gap-1">
-                            <MeasurementIcon fieldKey={a.fieldKey} label={a.label} size={16} />
-                            {a.label} {a.rawDelta}
-                          </Tag>
-                        ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-[16px] font-semibold text-ink">Fitting {f.number}</span>
+                              <Tag size="sm" variant={approved ? "success" : "warning"}>
+                                {approved ? "Approved" : f.outcome === "skipped" ? "Skipped" : "Adjustments"}
+                              </Tag>
+                            </p>
+                            <p className="mt-0.5 text-caption text-text-tertiary">{formatDate(f.fittedAt)}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="-mr-2 -mt-1 shrink-0 text-text-tertiary hover:text-danger"
+                            aria-label={`Delete fitting ${f.number}`}
+                            onClick={() => setDeletingFitting(f)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+
+                        {f.adjustments.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {f.adjustments.map(a => (
+                              <Tag key={a.fieldKey} size="sm" variant="beige" className="tabular gap-1">
+                                <MeasurementIcon fieldKey={a.fieldKey} label={a.label} size={16} />
+                                {a.label} {a.rawDelta}
+                              </Tag>
+                            ))}
+                          </div>
+                        )}
+                        {f.notes && (
+                          <p className="mt-3 rounded-[var(--radius-control)] bg-surface-sunken/60 px-3 py-2.5 text-label leading-relaxed text-text-secondary">
+                            {f.notes}
+                          </p>
+                        )}
                       </div>
-                    )}
-                    {f.notes && <p className="mt-2 text-label text-text-secondary whitespace-normal">{f.notes}</p>}
-                  </ListItem>
-                ))}
-            </List>
+                    </li>
+                  );
+                })}
+            </ul>
           )}
         </Section>
 

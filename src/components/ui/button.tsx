@@ -21,10 +21,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         /** The one main action on a screen. */
-        primary: "bg-olive text-text-inverse hover:bg-olive-deep",
+        primary: "btn-raised bg-olive text-text-inverse hover:bg-olive-deep",
         /** Neutral action next to a primary one. */
         secondary:
-          "bg-surface-raised text-ink border border-border hover:border-border-strong hover:bg-surface",
+          "btn-raised-light bg-surface-raised text-ink border border-border/80 hover:border-border-strong hover:bg-surface",
         /** Soft olive fill — supporting actions that still need presence. */
         tonal: "bg-olive-soft text-olive-deep hover:bg-[#DCE0CC]",
         /** Text-weight action. */
@@ -35,7 +35,7 @@ const buttonVariants = cva(
         inverse: "bg-text-inverse text-olive-deep hover:bg-white",
         "inverse-ghost": "bg-white/10 text-text-inverse hover:bg-white/16",
         destructive: "bg-transparent text-danger hover:bg-danger-bg",
-        "destructive-filled": "bg-danger text-text-inverse hover:bg-[#86321F]",
+        "destructive-filled": "btn-raised bg-danger text-text-inverse hover:bg-[#86321F]",
       },
       size: {
         sm: "h-9 px-4 text-[13px] [&_svg]:size-4",

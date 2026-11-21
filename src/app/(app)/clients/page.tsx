@@ -1,13 +1,14 @@
 "use client";
 
 import React, { Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Users, UserPlus } from "lucide-react";
+import { Plus, Users, UserPlus, Search, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { SearchField } from "@/components/ui/choice";
-import { List, ListItem } from "@/components/ui/list";
+import { cn } from "@/lib/utils";
 import { PageBody, PageHeader } from "@/components/ui/page";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/ui/states";
 import { Tag } from "@/components/ui/tag";
@@ -25,6 +26,11 @@ function ClientsPageInner() {
   const [search, setSearch] = React.useState("");
   const [addOpen, setAddOpen] = React.useState(false);
   const [prefillName, setPrefillName] = React.useState("");
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const recents = React.useMemo(
+    () => [...clients].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt)).slice(0, 10),
+    [clients]
+  );
 
   // `?add=true` (from quick actions / search) opens the sheet directly.
   const addFromUrl = searchParams.get("add") === "true";
@@ -61,10 +67,24 @@ function ClientsPageInner() {
         title="Clients"
         description={status === "ready" && clients.length > 0 ? `${clients.length} ${clients.length === 1 ? "client" : "clients"}` : undefined}
         actions={
-          <Button onClick={() => setAddOpen(true)} size="md">
-            <Plus />
-            <span className="max-sm:sr-only">Add client</span>
-          </Button>
+          <>
+            {clients.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Search clients"
+                aria-pressed={searchOpen}
+                onClick={() => setSearchOpen(o => !o)}
+                className="lg:hidden"
+              >
+                <Search />
+              </Button>
+            )}
+            <Button onClick={() => setAddOpen(true)} size="md">
+              <Plus />
+              Add client
+            </Button>
+          </>
         }
       >
         {clients.length > 0 && (
@@ -72,7 +92,8 @@ function ClientsPageInner() {
             value={search}
             onValueChange={setSearch}
             placeholder="Search name, phone, tag or note"
-            className="pb-4"
+            className={cn("pb-4", !searchOpen && "max-lg:hidden")}
+            autoFocus={searchOpen}
           />
         )}
       </PageHeader>
@@ -112,41 +133,77 @@ function ClientsPageInner() {
             }
           />
         ) : (
-          <div className="space-y-6">
-            {grouped.map(([letter, list]) => (
-              <section key={letter} aria-label={letter}>
-                <h2 className="mb-2 px-1 text-overline uppercase text-text-tertiary">{letter}</h2>
-                <List>
-                  {list.map(c => {
-                    const measuredAt = c.lastMeasuredAt;
+          <>
+            {/* Recents — the clients you've worked with lately */}
+            {!q && recents.length > 1 && (
+              <section aria-label="Recent clients" className="mb-6">
+                <div className="mb-3 flex items-center justify-between px-1">
+                  <h2 className="text-[16px] font-medium text-text-secondary">Recents</h2>
+                  <ChevronRight size={18} strokeWidth={1.75} className="text-text-tertiary" aria-hidden />
+                </div>
+                <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:px-0">
+                  {recents.map(c => {
+                    const [first, ...rest] = c.fullName.split(" ");
                     return (
-                      <ListItem
+                      <Link
                         key={c.id}
                         href={`/clients/${c.id}`}
-                        onPrefetch={() => prefetchClient(c.id)}
-                        leading={<Avatar name={c.fullName} src={c.photoUrl} />}
-                        title={
-                          <span className="flex items-center gap-2">
-                            <span className="truncate">{c.fullName}</span>
-                            {c.tags.slice(0, 1).map(t => (
-                              <Tag key={t} size="sm" variant="olive">
-                                {t}
-                              </Tag>
-                            ))}
-                          </span>
-                        }
-                        subtitle={c.phones[0] || c.email || "No contact details"}
-                        trailingSub={
-                          measuredAt ? `Measured ${timeAgo(measuredAt)}` : "Not measured"
-                        }
-                        chevron
-                      />
+                        onMouseEnter={() => prefetchClient(c.id)}
+                        className="flex w-[64px] shrink-0 flex-col items-center gap-2 text-center"
+                      >
+                        <Avatar name={c.fullName} src={c.photoUrl} size="lg" shape="rounded" className="size-16 text-[20px] font-medium" />
+                        <span className="w-full text-[12.5px] font-medium leading-tight text-text-secondary">
+                          <span className="block truncate">{first}</span>
+                          {rest.length > 0 && <span className="block truncate">{rest.join(" ")}</span>}
+                        </span>
+                      </Link>
                     );
                   })}
-                </List>
+                </div>
               </section>
-            ))}
-          </div>
+            )}
+
+            <div className="space-y-5">
+              {grouped.map(([letter, list]) => (
+                <section key={letter} aria-label={letter}>
+                  <h2 className="px-1 pb-1 text-[14px] font-medium text-text-secondary">{letter}</h2>
+                  <ul>
+                    {list.map(c => {
+                      const measuredAt = c.lastMeasuredAt;
+                      return (
+                        <li key={c.id}>
+                          <Link
+                            href={`/clients/${c.id}`}
+                            onMouseEnter={() => prefetchClient(c.id)}
+                            onTouchStart={() => prefetchClient(c.id)}
+                            className="flex items-center gap-3.5 rounded-[var(--radius-card)] px-1 py-2.5 transition-colors hover:bg-surface/70 active:bg-surface"
+                          >
+                            <Avatar name={c.fullName} src={c.photoUrl} size="md" shape="rounded" className="size-11" />
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-2">
+                                <span className="truncate text-[15.5px] font-medium text-ink">{c.fullName}</span>
+                                {c.tags.slice(0, 1).map(t => (
+                                  <Tag key={t} size="sm" variant="olive" className="max-sm:hidden">
+                                    {t}
+                                  </Tag>
+                                ))}
+                              </span>
+                              <span className="block truncate text-[13px] text-text-secondary">
+                                {c.phones[0] || c.email || "No contact details"}
+                              </span>
+                            </span>
+                            <span className="shrink-0 text-[11.5px] text-text-tertiary">
+                              {measuredAt ? `Measured ${timeAgo(measuredAt)}` : "Not measured"}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </>
         )}
       </PageBody>
 

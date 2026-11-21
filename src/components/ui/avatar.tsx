@@ -8,6 +8,8 @@ interface AvatarProps extends React.HTMLAttributes<HTMLSpanElement> {
   name: string;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
   src?: string;
+  /** `rounded` = soft square (client lists and recents). */
+  shape?: "circle" | "rounded";
 }
 
 // Muted, warm initials backgrounds — deterministic per name so a client
@@ -36,7 +38,7 @@ const sizeClasses = {
 
 // Rendered as a <span> so it is valid inside text, buttons and links.
 const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
-  ({ name, size = "md", src, className, ...props }, ref) => {
+  ({ name, size = "md", src, shape = "circle", className, ...props }, ref) => {
     const [imgError, setImgError] = React.useState(false);
     const showImage = !!src && !imgError;
     return (
@@ -45,7 +47,8 @@ const Avatar = React.forwardRef<HTMLSpanElement, AvatarProps>(
         role="img"
         aria-label={name}
         className={cn(
-          "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full font-semibold tracking-tight",
+          "relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden font-semibold tracking-tight",
+          shape === "circle" ? "rounded-full" : size === "xs" || size === "sm" ? "rounded-[8px]" : size === "md" ? "rounded-[12px]" : "rounded-[18px]",
           !showImage && tintFor(name),
           sizeClasses[size],
           className
