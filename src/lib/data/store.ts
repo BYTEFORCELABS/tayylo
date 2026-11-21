@@ -187,6 +187,25 @@ export const orderRepo = {
       `order:${id}`
     );
   },
+  async updatePrice(id: string, priceMinor: number): Promise<Order | null> {
+    return mutating(
+      api<Order | null>(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ priceMinor }) }),
+      "orders",
+      `order:${id}`
+    );
+  },
+  async delete(id: string): Promise<boolean> {
+    const result = await mutating(api<{ ok: boolean }>(`/api/orders/${id}`, { method: "DELETE" }), "orders", `order:${id}`);
+    return result?.ok ?? false;
+  },
+  /** Picks which bank account this order's invoice shows (null = the default). */
+  async setBankAccount(id: string, bankAccountId: string | null): Promise<Order | null> {
+    return mutating(
+      api<Order | null>(`/api/orders/${id}`, { method: "PATCH", body: JSON.stringify({ bankAccountId }) }),
+      "orders",
+      `order:${id}`
+    );
+  },
   async addPayment(
     orderId: string,
     payment: { amountMinor: number; method: string; reference?: string; paidAt?: string }

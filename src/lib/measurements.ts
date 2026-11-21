@@ -50,12 +50,11 @@ export function shareText(opts: {
   const u = unitLabel(opts.unit);
   const lines = opts.set.values.map(v => `${v.labelSnapshot}: ${formatMeasurement(v.valueMm, opts.unit)} ${u}`);
   return [
-    `*${opts.businessName || "Measurements"}*`,
-    `Client: ${opts.clientName}`,
-    `${opts.set.templateName} · ${opts.dateLabel}`,
+    `*${opts.clientName} — ${opts.set.templateName} measurements*`,
+    `Taken by ${opts.businessName?.trim() || "your tailor"} on ${opts.dateLabel}`,
     "",
     ...lines,
     "",
-    "_Recorded with Tayylo_",
+    "_Measured and recorded with Tayylo_",
   ].join("\n");
 }

@@ -13,7 +13,20 @@ export interface Business {
   timezone: string;
   ownerName: string;
   garmentTypes: string[];
+  /** Studio logo as an image data URL; documents fall back to the Tayylo mark. */
+  logoUrl?: string | null;
+  /** Accounts clients can pay into, shown on invoices. */
+  bankAccounts: BankAccount[];
   createdAt: string;
+}
+
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  /** The account invoices show unless an order picks another. */
+  isDefault: boolean;
 }
 
 export interface Customer {
@@ -110,6 +123,10 @@ export interface Order {
   note?: string;
   priceMinor: number;
   currency: string;
+  /** Bank account shown on this order's invoice; null/absent = the default account. */
+  bankAccountId?: string | null;
+  /** Times the agreed price was changed after being set; capped by MAX_PRICE_CHANGES. */
+  priceChangeCount?: number;
   payments: Payment[];
   fittings: Fitting[];
   /** Fabric / style photos. Only returned when fetching a single order. */

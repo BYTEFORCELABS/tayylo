@@ -6,7 +6,7 @@
 
 import React from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { ArrowRight, BadgeCheck, CircleHelp, CircleX, Clock, PackageCheck, Ruler, Scissors, Spool, Wrench, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowRight, BadgeCheck, CircleHelp, CircleX, Clock, PackageCheck, Ruler, Scissors, Spool, Wrench, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PRODUCTION_PATH, normalizeStatus, statusLabel } from "@/lib/orders";
@@ -44,6 +44,8 @@ export function ProductionTracker({ status, onChange, onOpenAll, updating }: Pro
   const last = PRODUCTION_PATH.length - 1;
   // Unknown status: offer to start the production path from the beginning.
   const next = !known ? "pending" : index >= 0 && index < last ? PRODUCTION_PATH[index + 1] : undefined;
+  // Mistakes happen: the previous stage is always one tap away.
+  const prev = index > 0 ? PRODUCTION_PATH[index - 1] : undefined;
   const cancelled = known === "cancelled";
   const stage = known
     ? STAGE[known]
@@ -85,7 +87,7 @@ export function ProductionTracker({ status, onChange, onOpenAll, updating }: Pro
                 cancelled
                   ? "bg-danger-bg text-danger"
                   : known === "delivered"
-                    ? "bg-success-bg text-success"
+                    ? "bg-[#16A34A] text-white"
                     : !known
                       ? "bg-surface-sunken text-text-secondary"
                       : "bg-ink text-text-inverse"
@@ -150,8 +152,16 @@ export function ProductionTracker({ status, onChange, onOpenAll, updating }: Pro
                 const done = i < index;
                 const current = i === index;
                 return (
-                  <li key={s} className="flex w-12 flex-col items-center gap-2" aria-current={current ? "step" : undefined}>
-                    <span className="relative flex size-6 items-center justify-center">
+                  <li key={s} className="flex w-12 justify-center" aria-current={current ? "step" : undefined}>
+                    <button
+                      type="button"
+                      disabled={current || updating}
+                      onClick={() => onChange(s)}
+                      aria-label={current ? `${statusLabel(s)} (current stage)` : `Set stage to ${statusLabel(s).toLowerCase()}`}
+                      title={current ? undefined : `Set to ${statusLabel(s).toLowerCase()}`}
+                      className="group flex flex-col items-center gap-2 rounded-[var(--radius-control)] px-1 outline-none enabled:cursor-pointer focus-visible:ring-2 focus-visible:ring-olive/40 disabled:cursor-default"
+                    >
+                    <span className="relative flex size-6 items-center justify-center transition-transform duration-[var(--duration-fast)] group-enabled:group-hover:scale-110 group-enabled:group-active:scale-95">
                       {current && !reduce && (
                         <motion.span
                           aria-hidden
@@ -192,11 +202,12 @@ export function ProductionTracker({ status, onChange, onOpenAll, updating }: Pro
                     <span
                       className={cn(
                         "text-center text-[11px] leading-tight transition-colors duration-[var(--duration-normal)]",
-                        current ? "font-semibold text-ink" : done ? "text-text-secondary" : "text-text-tertiary"
+                        current ? "font-semibold text-ink" : done ? "text-text-secondary group-hover:text-ink" : "text-text-tertiary group-hover:text-ink"
                       )}
                     >
                       {current && known === "alterations" ? "Alterations" : statusLabel(s)}
                     </span>
+                    </button>
                   </li>
                 );
               })}
@@ -205,10 +216,23 @@ export function ProductionTracker({ status, onChange, onOpenAll, updating }: Pro
         </div>
       )}
 
-      {/* Primary move-forward action */}
-      {next && (
-        <div className="border-t border-divider px-5 py-3">
-          <Button block variant="primary" onClick={() => onChange(next)} disabled={updating} className="overflow-hidden">
+      {/* Step back / move forward */}
+      {(next || prev) && (
+        <div className={cn("grid gap-2.5 border-t border-divider px-5 py-4", prev && next ? "grid-cols-[auto_minmax(0,1fr)]" : "grid-cols-1")}>
+          {prev && (
+            <Button
+              variant="secondary"
+              onClick={() => onChange(prev)}
+              disabled={updating}
+              aria-label={`Move back to ${statusLabel(prev).toLowerCase()}`}
+              className={cn("min-w-0", next && "max-sm:w-12 max-sm:px-0")}
+            >
+              <ArrowLeft />
+              <span className={cn("truncate", next && "max-sm:hidden")}>Back to {statusLabel(prev).toLowerCase()}</span>
+            </Button>
+          )}
+          {next && (
+          <Button variant="primary" onClick={() => onChange(next)} disabled={updating} className="w-full min-w-0 overflow-hidden">
             <span className="relative flex h-5 items-center overflow-hidden">
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span
@@ -225,6 +249,7 @@ export function ProductionTracker({ status, onChange, onOpenAll, updating }: Pro
             </span>
             <ArrowRight />
           </Button>
+          )}
         </div>
       )}
     </div>
