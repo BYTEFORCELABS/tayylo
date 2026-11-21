@@ -7,7 +7,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Compass } from "lucide-react";
+import { ArrowLeft, ChevronRight, Compass } from "lucide-react";
 import { useMe } from "@/lib/use-business";
 import { useShell } from "@/components/shell/shell-context";
 import { previousPath } from "@/lib/nav-history";
@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 
 const widths = {
   sm: "max-w-xl",
-  md: "max-w-3xl",
-  lg: "max-w-5xl",
+  md: "max-w-4xl",
+  lg: "max-w-7xl",
 } as const;
 
 export function PageBody({
@@ -232,12 +232,12 @@ export function BackButton({
         "flex size-10 shrink-0 items-center justify-center rounded-full",
         "transition-[background-color,transform] duration-[var(--duration-fast)] active:scale-90",
         tone === "default"
-          ? "border border-border bg-surface-raised text-ink shadow-[var(--shadow-xs)] hover:bg-surface"
+          ? "-ml-2 text-ink hover:bg-surface-sunken/70"
           : "bg-black/35 text-white backdrop-blur-md hover:bg-black/50",
         className
       )}
     >
-      <ChevronLeft size={22} strokeWidth={2} className="-ml-0.5" />
+      <ArrowLeft size={22} strokeWidth={2} />
     </button>
   );
 }

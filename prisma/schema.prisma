@@ -55,6 +55,10 @@ model Business {
   timezone     String   @default("")
   ownerName    String   @default("")
   garmentTypes String[] @default([])
+  // Studio logo (small image data URL). Null = documents use the Tayylo mark.
+  logoUrl      String?
+  // Accounts clients can pay into: [{ id, bankName, accountName, accountNumber, isDefault }]
+  bankAccounts Json     @default("[]")
   createdAt    DateTime @default(now())
 
   customers Customer[]
@@ -188,6 +192,10 @@ model Order {
   note         String?
   priceMinor   Int      @default(0)
   currency     String   @default("NGN")
+  // Which of the business's bank accounts this order's invoice shows (null = default)
+  bankAccountId String?
+  // How many times the agreed price was changed after it was first set (capped)
+  priceChangeCount Int @default(0)
 
   items    OrderItem[]
   payments Payment[]

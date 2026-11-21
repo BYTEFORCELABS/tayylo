@@ -57,16 +57,16 @@ Tag.displayName = "Tag";
 
 // ---------------------------------------------------------------- Status
 
-type Tone = "neutral" | "info" | "progress" | "olive" | "success" | "danger" | "muted";
+type Tone = "neutral" | "info" | "progress" | "olive" | "success" | "bright" | "pending" | "danger" | "muted";
 
 const statusTone: Record<string, Tone> = {
-  pending: "neutral",
+  pending: "pending",
   cutting: "info",
   sewing: "info",
   fitting: "olive",
   alterations: "progress",
   ready: "success",
-  delivered: "muted",
+  delivered: "bright",
   overdue: "danger",
   cancelled: "muted",
 };
@@ -77,6 +77,10 @@ const toneClasses: Record<Tone, { dot: string; text: string; bg: string }> = {
   progress: { dot: "bg-warning", text: "text-warning", bg: "bg-warning-bg" },
   olive: { dot: "bg-olive", text: "text-olive-deep", bg: "bg-olive-soft" },
   success: { dot: "bg-success", text: "text-success", bg: "bg-success-bg" },
+  /** Vivid green — the job is done and handed over. */
+  bright: { dot: "bg-[#16A34A]", text: "text-[#13803A]", bg: "bg-[#D9F7E1]" },
+  /** Warm yellow — received, not started yet. */
+  pending: { dot: "bg-[#E0A800]", text: "text-[#8A6400]", bg: "bg-[#FFF3C4]" },
   danger: { dot: "bg-danger", text: "text-danger", bg: "bg-danger-bg" },
   muted: { dot: "bg-border-strong", text: "text-text-tertiary", bg: "bg-surface-sunken" },
 };

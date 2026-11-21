@@ -56,24 +56,39 @@ const Panel = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEleme
     <div
       ref={ref}
       className={cn(
-        "relative overflow-hidden rounded-[var(--radius-panel)] bg-panel text-text-inverse p-6",
+        "relative overflow-hidden rounded-[var(--radius-panel)] bg-panel text-text-inverse p-6 pt-11",
         className
       )}
       {...props}
     >
-      {/* Faint stitched rule — a quiet tailoring cue, not decoration */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-6 top-3 h-px opacity-25"
-        style={{
-          backgroundImage: "linear-gradient(90deg, currentColor 50%, transparent 50%)",
-          backgroundSize: "8px 1px",
-        }}
-      />
+      <TapeRule />
       {children}
     </div>
   )
 );
 Panel.displayName = "Panel";
+
+// One "unit" on the tape. Minor ticks every UNIT/10, a half mark at UNIT/2
+// and a numbered major mark every UNIT — like the edge of a tailor's tape.
+const UNIT = 64;
+const ORIGIN = 24; // aligns 0 with the panel's content edge (p-6)
+const tick = (w: number, h: number) =>
+  `linear-gradient(to right, currentColor ${w}px, transparent ${w}px) ${ORIGIN}px 0 / ${UNIT / (h === 6 ? 10 : h === 10 ? 2 : 1)}px ${h}px repeat-x`;
+
+/** Tailor's tape-measure edge along the top of a panel. Purely decorative. */
+function TapeRule() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-7 select-none overflow-hidden opacity-35">
+      <div className="absolute inset-0" style={{ background: [tick(1, 14), tick(1, 10), tick(1, 6)].join(", ") }} />
+      <div className="tabular absolute top-[16px] flex text-[9.5px] font-semibold leading-none" style={{ left: ORIGIN + 3 }}>
+        {Array.from({ length: 40 }, (_, i) => (
+          <span key={i} className="shrink-0" style={{ width: UNIT }}>
+            {i}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export { Card, CardHeader, CardTitle, CardContent, Panel };

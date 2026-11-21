@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Ruler, Layers, FileUp, FileDown, LogOut, Trash2, Palette, Coins, RotateCcw, Mail, ChevronRight } from "lucide-react";
+import { Ruler, Layers, FileUp, FileDown, LogOut, Trash2, Palette, Coins, RotateCcw, Mail, ChevronRight, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
 import { TemplatesDialog } from "@/components/settings/templates-dialog";
 import { ImportDialog } from "@/components/settings/import-dialog";
 import { ExportDialog } from "@/components/settings/export-dialog";
+import { BankAccountsDialog, LogoPicker, bankAccountsOf } from "@/components/settings/branding";
 import { accountRepo, businessRepo, resetStore } from "@/lib/data/store";
 import { clearBusinessCache, setCachedBusiness, useBusiness } from "@/lib/use-business";
 import { CURRENCIES, currencySymbol } from "@/lib/format";
@@ -39,6 +40,9 @@ export default function SettingsPage() {
   const [exportOpen, setExportOpen] = React.useState(false);
   const [resetOpen, setResetOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [banksOpen, setBanksOpen] = React.useState(false);
+  const accounts = bankAccountsOf(business);
+  const defaultAccount = accounts.find(a => a.isDefault) ?? accounts[0];
 
   const updateUnit = async (unitSystem: UnitSystem) => {
     try {
@@ -76,6 +80,29 @@ export default function SettingsPage() {
               />
             </List>
           )}
+        </section>
+
+        {/* Invoices & receipts */}
+        <section>
+          <Overline className="mb-3 px-1">Invoices &amp; receipts</Overline>
+          <List>
+            <LogoPicker />
+            <ListItem
+              onClick={() => setBanksOpen(true)}
+              leading={
+                <IconTile>
+                  <Landmark />
+                </IconTile>
+              }
+              title="Bank accounts"
+              subtitle={
+                defaultAccount
+                  ? `${defaultAccount.bankName} · ${defaultAccount.accountNumber}${accounts.length > 1 ? ` · +${accounts.length - 1} more` : ""}`
+                  : "Add where clients should pay you"
+              }
+              chevron
+            />
+          </List>
         </section>
 
         {/* Preferences */}
@@ -235,6 +262,7 @@ export default function SettingsPage() {
       <TemplatesDialog open={templatesOpen} onOpenChange={setTemplatesOpen} />
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <ExportDialog open={exportOpen} onOpenChange={setExportOpen} />
+      <BankAccountsDialog open={banksOpen} onOpenChange={setBanksOpen} />
 
       <ConfirmDialog
         open={resetOpen}

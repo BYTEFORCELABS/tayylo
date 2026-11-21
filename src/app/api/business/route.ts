@@ -1,5 +1,25 @@
 import { prisma } from "@/lib/db";
-import { requireUserId, errorResponse } from "@/lib/auth-helpers";
+import { requireUserId, errorResponse, ApiError } from "@/lib/auth-helpers";
+
+// Logos are stored inline as small data URLs (resized on the client).
+const MAX_LOGO_CHARS = 400_000;
+
+/** Keeps only well-formed accounts, with exactly one default when any exist. */
+function cleanAccounts(input: unknown[]) {
+  const accounts = input
+    .filter((a): a is Record<string, unknown> => !!a && typeof a === "object")
+    .map(a => ({
+      id: typeof a.id === "string" && a.id ? a.id : crypto.randomUUID(),
+      bankName: String(a.bankName ?? "").trim().slice(0, 80),
+      accountName: String(a.accountName ?? "").trim().slice(0, 120),
+      accountNumber: String(a.accountNumber ?? "").trim().slice(0, 40),
+      isDefault: a.isDefault === true,
+    }))
+    .filter(a => a.bankName && a.accountNumber)
+    .slice(0, 10);
+  const def = accounts.findIndex(a => a.isDefault);
+  return accounts.map((a, i) => ({ ...a, isDefault: i === (def < 0 ? 0 : def) }));
+}
 
 export async function GET() {
   try {
@@ -27,6 +47,13 @@ export async function PATCH(request: Request) {
     if (typeof body.timezone === "string") data.timezone = body.timezone;
     if (typeof body.ownerName === "string") data.ownerName = body.ownerName;
     if (Array.isArray(body.garmentTypes)) data.garmentTypes = body.garmentTypes;
+    if (body.logoUrl === null) data.logoUrl = null;
+    else if (typeof body.logoUrl === "string") {
+      if (!body.logoUrl.startsWith("data:image/")) throw new ApiError(400, "Logo must be an image");
+      if (body.logoUrl.length > MAX_LOGO_CHARS) throw new ApiError(413, "That logo is too large");
+      data.logoUrl = body.logoUrl;
+    }
+    if (Array.isArray(body.bankAccounts)) data.bankAccounts = cleanAccounts(body.bankAccounts);
 
     const business = await prisma.business.upsert({
       where: { ownerId: userId },
