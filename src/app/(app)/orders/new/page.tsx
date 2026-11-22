@@ -187,11 +187,11 @@ function NewOrderPageInner() {
         variant="compact"
         eyebrow={preselectedClientId ? "New order" : "New order · Step 2 of 2"}
         title="Order details"
-        width="sm"
+        width="md"
         back={preselectedClientId ? true : undefined}
         onBack={preselectedClientId ? undefined : () => setStep("client")}
       />
-      <PageBody width="sm" className="pb-40">
+      <PageBody width="md" className="pb-40">
         {client && (
           <div className="flex items-center gap-3 rounded-[var(--radius-card)] border border-border/70 bg-surface px-4 py-3">
             <Avatar name={client.fullName} src={client.photoUrl} />
@@ -393,7 +393,7 @@ function NewOrderPageInner() {
       </PageBody>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-canvas/90 backdrop-blur-xl lg:pl-64">
-        <div className="mx-auto flex max-w-xl items-center gap-4 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="mx-auto flex max-w-4xl items-center gap-4 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6 lg:px-10">
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-1.5 truncate text-caption text-text-tertiary">
               {garmentName && <GarmentIcon garment={garmentName} size={16} label="" />}
