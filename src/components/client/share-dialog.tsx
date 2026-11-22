@@ -59,8 +59,16 @@ export function ShareMeasurementsDialog({ open, onOpenChange, clientName, phone,
 
   const makeImage = async () => {
     if (!cardRef.current) throw new Error("Card not ready");
+    const node = cardRef.current;
+    // Every image (logo, icons) must be decoded before capture, or it comes out blank or distorted.
+    await Promise.all(
+      Array.from(node.querySelectorAll("img")).map(img => img.decode().catch(() => {})),
+    );
     const { toBlob } = await import("html-to-image");
-    const blob = await toBlob(cardRef.current, { pixelRatio: 2, backgroundColor: "#F3F1EA", cacheBust: true, width: 640 });
+    const opts = { pixelRatio: 2, backgroundColor: "#F3F1EA", width: 640 };
+    // Safari often drops images on the first pass; a warm-up pass fixes it.
+    await toBlob(node, opts).catch(() => null);
+    const blob = await toBlob(node, opts);
     if (!blob) throw new Error("Couldn't create the image");
     return new File([blob], `${fileName}.png`, { type: "image/png" });
   };
@@ -178,7 +186,7 @@ function MeasurementCardArt({
       <div className="relative overflow-hidden bg-panel px-6 pt-9 pb-5 text-text-inverse">
         <TapeRule className="h-6 opacity-30" />
         <div className="flex items-center justify-between gap-4">
-          <Logo tone="cream" height={wide ? 26 : 22} priority={wide} />
+          <Logo tone="cream" height={wide ? 26 : 22} plain />
           <span className="whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-[0.18em] text-text-on-panel-muted">
             Measurement card
           </span>
@@ -209,7 +217,7 @@ function MeasurementCardArt({
 
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-divider pt-4">
           <p className="flex items-center gap-2 text-caption text-text-tertiary">
-            <Logo variant="symbol" height={14} priority={wide} />
+            <Logo variant="symbol" height={14} plain />
             Measured and recorded with Tayylo
           </p>
           <p className="tabular whitespace-nowrap text-caption text-text-tertiary">
