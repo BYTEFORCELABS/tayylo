@@ -161,42 +161,49 @@ export default function TodayPage() {
           <div className="hidden gap-x-10 gap-y-8 lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             {/* -------- primary column -------- */}
             <div className="min-w-0">
-              <Panel className="animate-rise-in">
-                <p className="text-label font-medium text-text-on-panel-muted">Collected in {monthName}</p>
-                <p className="tabular mt-2 text-display text-text-inverse">{formatMoney(collected, currency)}</p>
-
-                <dl className="mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-5">
-                  <div>
-                    <dt className="text-caption text-text-on-panel-muted">Outstanding</dt>
-                    <dd className="tabular mt-1 text-[17px] font-semibold">{formatMoney(outstanding, currency)}</dd>
-                    <dd className="text-caption text-text-on-panel-muted">
-                      {owing.length} {owing.length === 1 ? "order" : "orders"} owing
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-caption text-text-on-panel-muted">In production</dt>
-                    <dd className="tabular mt-1 text-[17px] font-semibold">{active.length} {active.length === 1 ? "order" : "orders"}</dd>
-                    <dd className="text-caption text-text-on-panel-muted">
-                      {active.filter(o => {
-                        const d = daysUntil(o.dueAt);
-                        return d >= 0 && d <= 7;
-                      }).length}{" "}
-                      due this week
-                    </dd>
-                  </div>
-                </dl>
-
-                <div className="mt-6 flex gap-2.5">
-                  <Button variant="inverse" className="flex-1" onClick={() => router.push("/measure")}>
-                    <Ruler />
-                    Measure
-                  </Button>
-                  <Button variant="inverse-ghost" className="flex-1" onClick={() => router.push("/orders/new")}>
-                    <ClipboardList />
-                    New order
-                  </Button>
+              {/* Same summary as mobile: takings on a white tape-edged card inside the dark panel */}
+              <div className="animate-rise-in rounded-[var(--radius-panel)] bg-panel p-2 text-text-inverse">
+                <div className="relative overflow-hidden rounded-[calc(var(--radius-panel)-8px)] bg-surface-raised px-6 pt-10 pb-6 text-ink">
+                  <TapeRule className="h-6 text-ink opacity-25" />
+                  <p className="text-label font-medium text-text-secondary">Collected in {monthName}</p>
+                  <p className="tabular mt-2 text-display text-ink">{formatMoney(collected, currency)}</p>
                 </div>
-              </Panel>
+
+                <div className="px-4 pb-4">
+                  <dl className="mt-5 grid grid-cols-2 gap-4">
+                    <div>
+                      <dt className="text-caption text-text-on-panel-muted">Outstanding</dt>
+                      <dd className="tabular mt-1 text-[17px] font-semibold">{formatMoney(outstanding, currency)}</dd>
+                      <dd className="text-caption text-text-on-panel-muted">
+                        {owing.length} {owing.length === 1 ? "order" : "orders"} owing
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-caption text-text-on-panel-muted">In production</dt>
+                      <dd className="tabular mt-1 text-[17px] font-semibold">{active.length} {active.length === 1 ? "order" : "orders"}</dd>
+                      <dd className="text-caption text-text-on-panel-muted">
+                        {active.filter(o => {
+                          const d = daysUntil(o.dueAt);
+                          return d >= 0 && d <= 7;
+                        }).length}{" "}
+                        due this week
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+
+              {/* Same buttons as mobile: raised olive primary + raised white secondary */}
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <Button size="lg" onClick={() => router.push("/measure")}>
+                  <Ruler />
+                  Measure
+                </Button>
+                <Button size="lg" variant="secondary" onClick={() => router.push("/orders/new")}>
+                  <ShoppingCart />
+                  New order
+                </Button>
+              </div>
 
               <Section
                 title="Needs attention"
