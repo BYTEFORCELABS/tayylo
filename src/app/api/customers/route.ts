@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { requireUserAndBusiness, errorResponse } from "@/lib/auth-helpers";
 import { mediaMapForBusiness } from "@/lib/media";
+import { customerCreateSchema } from "@/lib/customer-schema";
+import { readBody } from "@/lib/validation";
 
 export async function GET(request: Request) {
   try {
@@ -48,17 +50,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { business } = await requireUserAndBusiness();
-    const body = await request.json();
+    const body = await readBody(request, customerCreateSchema);
 
     const customer = await prisma.customer.create({
       data: {
         businessId: business.id,
         fullName: body.fullName,
-        phones: body.phones ?? [],
-        email: body.email || null,
-        tags: body.tags ?? [],
-        notes: body.notes || null,
-        photoUrl: body.photoUrl || null,
+        phones: body.phones,
+        email: body.email,
+        tags: body.tags,
+        notes: body.notes,
+        photoUrl: body.photoUrl,
       },
     });
     return Response.json({ ...customer, media: [] }, { status: 201 });

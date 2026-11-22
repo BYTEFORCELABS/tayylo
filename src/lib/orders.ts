@@ -17,6 +17,13 @@ export const ORDER_STATUSES: { key: OrderStatusName; label: string }[] = [
 ];
 
 /** The linear production path shown as a progress track. */
+/**
+ * The agreed price can be changed this many times after it's first set, so
+ * a client's bill can't keep moving. Setting a price on an order that had
+ * none doesn't count.
+ */
+export const MAX_PRICE_CHANGES = 2;
+
 export const PRODUCTION_PATH: OrderStatusName[] = [
   "pending",
   "cutting",

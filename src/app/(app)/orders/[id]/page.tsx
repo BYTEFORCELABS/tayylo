@@ -35,8 +35,10 @@ import { getQueryData, setQueryData } from "@/lib/query";
 import { qk, useCustomer, useMeasurementSet, useOrder } from "@/lib/queries";
 import { useBusiness } from "@/lib/use-business";
 import { cn } from "@/lib/utils";
-import { dueLabel, formatDate, formatMoney } from "@/lib/format";
+import { currencySymbol, dueLabel, formatDate, formatMoney } from "@/lib/format";
+import { Input } from "@/components/ui/input";
 import {
+  MAX_PRICE_CHANGES,
   ORDER_STATUSES,
   balanceMinor,
   displayStatus,
@@ -75,6 +77,9 @@ export default function OrderDetailPage() {
   const [addKind, setAddKind] = React.useState<MaterialKind>("Fabric");
   const [deletingFitting, setDeletingFitting] = React.useState<Fitting | null>(null);
   const [deleteBusy, setDeleteBusy] = React.useState(false);
+  const [priceOpen, setPriceOpen] = React.useState(false);
+  const [deleteOrderOpen, setDeleteOrderOpen] = React.useState(false);
+  const [deletingOrder, setDeletingOrder] = React.useState(false);
   const openAdd = (kind: MaterialKind) => {
     setAddKind(kind);
     setAddPhotoOpen(true);
@@ -155,6 +160,21 @@ export default function OrderDetailPage() {
   const balance = balanceMinor(order);
   const paidPct = order.priceMinor > 0 ? Math.min(100, Math.round((paid / order.priceMinor) * 100)) : 0;
   const overdue = isOverdue(order);
+  const priceChangesLeft = Math.max(0, MAX_PRICE_CHANGES - (order.priceChangeCount ?? 0));
+  const priceLocked = order.priceMinor > 0 && priceChangesLeft === 0;
+
+  const deleteOrder = async () => {
+    setDeletingOrder(true);
+    try {
+      await orderRepo.delete(order.id);
+      if (getQueryData<Order[]>(qk.orders)) setQueryData<Order[]>(qk.orders, list => (list ?? []).filter(o => o.id !== order.id));
+      toast.success(`Order #${order.number} deleted`);
+      router.replace("/orders");
+    } catch {
+      toast.error("Couldn't delete this order");
+      setDeletingOrder(false);
+    }
+  };
   const fieldOptions = measurementSet?.values.map(v => ({ key: v.fieldKey, label: v.labelSnapshot }));
 
   return (
@@ -192,23 +212,23 @@ export default function OrderDetailPage() {
             onAdd={() => openAdd("Fabric")}
             onOpen={setViewerIndex}
           />
-          <MaterialStrip order={order} onAdd={() => openAdd("Fabric")} onOpen={setViewerIndex} />
+          <MaterialStrip order={order} onAdd={() => openAdd("Fabric")} onAddStyle={() => openAdd("Style")} onOpen={setViewerIndex} />
         </div>
 
-        {/* Style references — the look the client asked for */}
-        <Section
-          title="Style"
-          trailing={
-            (order.media ?? []).some(m => m.caption?.startsWith("Style")) ? (
+        {/* Style references — the look the client asked for (added from the photo strip) */}
+        {(order.media ?? []).some(m => m.caption?.startsWith("Style")) && (
+          <Section
+            title="Style"
+            trailing={
               <Button variant="secondary" size="sm" onClick={() => openAdd("Style")}>
                 <Plus />
                 Add style
               </Button>
-            ) : undefined
-          }
-        >
-          <StyleGallery order={order} onAdd={() => openAdd("Style")} onOpen={setViewerIndex} />
-        </Section>
+            }
+          >
+            <StyleGallery order={order} onAdd={() => openAdd("Style")} onOpen={setViewerIndex} />
+          </Section>
+        )}
 
         {/* Production */}
         <div className="mt-6">
@@ -242,6 +262,20 @@ export default function OrderDetailPage() {
                 <div className="text-right">
                   <p className="text-caption text-text-tertiary">Agreed price</p>
                   <p className="tabular mt-1 text-[15px] font-semibold text-ink">{formatMoney(order.priceMinor, order.currency)}</p>
+                  {priceLocked ? (
+                    <p className="mt-1 inline-flex items-center gap-1 text-caption text-text-tertiary" title={`Changed ${MAX_PRICE_CHANGES} times`}>
+                      <Lock size={12} strokeWidth={2} />
+                      Locked
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPriceOpen(true)}
+                      className="mt-0.5 -mr-1 rounded-full px-1 text-caption font-semibold text-olive hover:underline"
+                    >
+                      {order.priceMinor > 0 ? "Change" : "Set price"}
+                    </button>
+                  )}
                 </div>
               </div>
               {order.priceMinor > 0 && (
@@ -401,51 +435,75 @@ export default function OrderDetailPage() {
               }
             />
           ) : (
-            <List>
+            <ul className="divide-y divide-divider overflow-hidden rounded-[var(--radius-card)] border border-border/70 bg-surface">
               {[...order.fittings]
                 .sort((a, b) => b.number - a.number)
-                .map(f => (
-                  <ListItem
-                    key={f.id}
-                    leading={
-                      <IconTile tone={f.outcome === "approved" ? "success" : "warning"}>
-                        {f.outcome === "approved" ? <Check /> : <Scissors />}
+                .map(f => {
+                  const approved = f.outcome === "approved";
+                  return (
+                    <li key={f.id} className="flex gap-3.5 px-4 py-4 sm:px-5">
+                      <IconTile tone={approved ? "success" : "warning"} className="mt-0.5">
+                        {approved ? <Check /> : <Scissors />}
                       </IconTile>
-                    }
-                    title={`Fitting ${f.number}`}
-                    subtitle={formatDate(f.fittedAt)}
-                    trailing={
-                      <span className="flex items-center gap-1">
-                        <Tag size="sm" variant={f.outcome === "approved" ? "success" : "warning"}>
-                          {f.outcome === "approved" ? "Approved" : f.outcome === "skipped" ? "Skipped" : "Adjustments"}
-                        </Tag>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="-mr-2 size-9 text-text-tertiary hover:text-danger"
-                          aria-label={`Delete fitting ${f.number}`}
-                          onClick={() => setDeletingFitting(f)}
-                        >
-                          <Trash2 size={17} />
-                        </Button>
-                      </span>
-                    }
-                  >
-                    {f.adjustments.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {f.adjustments.map(a => (
-                          <Tag key={a.fieldKey} size="sm" variant="beige" className="tabular gap-1">
-                            <MeasurementIcon fieldKey={a.fieldKey} label={a.label} size={16} />
-                            {a.label} {a.rawDelta}
-                          </Tag>
-                        ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="text-[16px] font-semibold text-ink">Fitting {f.number}</span>
+                              <Tag size="sm" variant={approved ? "success" : "warning"}>
+                                {approved ? "Approved" : f.outcome === "skipped" ? "Skipped" : "Adjustments"}
+                              </Tag>
+                            </p>
+                            <p className="mt-0.5 text-caption text-text-tertiary">{formatDate(f.fittedAt)}</p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="-mr-2 -mt-1 shrink-0 text-text-tertiary hover:text-danger"
+                            aria-label={`Delete fitting ${f.number}`}
+                            onClick={() => setDeletingFitting(f)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+
+                        {f.adjustments.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {f.adjustments.map(a => (
+                              <Tag key={a.fieldKey} size="sm" variant="beige" className="tabular gap-1">
+                                <MeasurementIcon fieldKey={a.fieldKey} label={a.label} size={16} />
+                                {a.label} {a.rawDelta}
+                              </Tag>
+                            ))}
+                          </div>
+                        )}
+                        {f.notes && (
+                          <p className="mt-3 rounded-[var(--radius-control)] bg-surface-sunken/60 px-3 py-2.5 text-label leading-relaxed text-text-secondary">
+                            {f.notes}
+                          </p>
+                        )}
                       </div>
-                    )}
-                    {f.notes && <p className="mt-2 text-label text-text-secondary whitespace-normal">{f.notes}</p>}
-                  </ListItem>
-                ))}
-            </List>
+                    </li>
+                  );
+                })}
+            </ul>
           )}
+        </Section>
+
+        <Section title="Manage">
+          <List>
+            <ListItem
+              onClick={() => setDeleteOrderOpen(true)}
+              leading={
+                <IconTile tone="danger">
+                  <Trash2 />
+                </IconTile>
+              }
+              title="Delete order"
+              subtitle="Removes this order, its payments, fittings and photos"
+              tone="danger"
+            />
+          </List>
         </Section>
 
         <p className="mt-10 text-center text-caption text-text-tertiary">
@@ -533,6 +591,47 @@ export default function OrderDetailPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={deleteOrderOpen} onOpenChange={o => !deletingOrder && setDeleteOrderOpen(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <div className="mb-2 flex size-12 items-center justify-center rounded-full bg-danger-bg text-danger">
+              <Trash2 size={22} strokeWidth={1.75} />
+            </div>
+            <DialogTitle>Delete order #{order.number}?</DialogTitle>
+            <DialogDescription>
+              {order.customerName}&apos;s {order.items[0]?.garmentType ?? "order"}
+              {order.payments.length > 0 && `, its ${order.payments.length} recorded payment${order.payments.length > 1 ? "s" : ""}`}, fittings,
+              photos, invoice and receipt will be permanently deleted. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setDeleteOrderOpen(false)} disabled={deletingOrder}>
+              Keep order
+            </Button>
+            <Button variant="destructive-filled" loading={deletingOrder} onClick={deleteOrder}>
+              <Trash2 />
+              Delete order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={priceOpen} onOpenChange={setPriceOpen}>
+        <DialogContent>
+          {priceOpen && (
+            <PriceForm
+              order={order}
+              paidMinor={paid}
+              changesLeft={priceChangesLeft}
+              onDone={updated => {
+                if (updated) setOrder(updated);
+                setPriceOpen(false);
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <OrderMaterials
         order={order}
         onOrder={setOrder}
@@ -579,6 +678,88 @@ function OrderMaterials({
     <>
       <AddMaterialSheet open={addOpen} onOpenChange={onAddOpenChange} onPick={add} busy={busy} initialKind={addKind} />
       <MaterialViewer order={order} index={viewerIndex} onIndex={onViewerIndex} onRemove={remove} onCover={makeCover} busy={busy} />
+    </>
+  );
+}
+
+/** Set or change the agreed price. Changes after the first price are capped. */
+function PriceForm({
+  order,
+  paidMinor: paid,
+  changesLeft,
+  onDone,
+}: {
+  order: Order;
+  paidMinor: number;
+  changesLeft: number;
+  onDone: (updated: Order | null) => void;
+}) {
+  const firstPrice = order.priceMinor <= 0;
+  const [value, setValue] = React.useState(firstPrice ? "" : String(order.priceMinor / 100));
+  const [error, setError] = React.useState<string>();
+  const [saving, setSaving] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
+  const priceMinor = Math.round((parseFloat(value.replace(/,/g, "")) || 0) * 100);
+
+  const save = async () => {
+    if (priceMinor <= 0) return setError("Enter the agreed price");
+    if (priceMinor < paid) return setError(`It can't be less than the ${formatMoney(paid, order.currency)} already paid`);
+    if (priceMinor === order.priceMinor) return onDone(null);
+    // A real change uses up one of the limited edits — ask once more.
+    if (!firstPrice && !confirming) return setConfirming(true);
+    setSaving(true);
+    try {
+      const updated = await orderRepo.updatePrice(order.id, priceMinor);
+      toast.success(firstPrice ? "Price set" : "Agreed price updated");
+      onDone(updated);
+    } catch (e) {
+      setError((e as Error).message || "Couldn't update the price");
+      setConfirming(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const leftAfter = changesLeft - 1;
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{firstPrice ? "Set agreed price" : "Change agreed price"}</DialogTitle>
+        <DialogDescription>
+          {firstPrice
+            ? `Once set, the price can be changed ${MAX_PRICE_CHANGES} times so your client's bill stays dependable.`
+            : `You can change the agreed price ${changesLeft} more time${changesLeft === 1 ? "" : "s"}. After that it's locked.`}
+        </DialogDescription>
+      </DialogHeader>
+      <Input
+        label={`Agreed price (${currencySymbol(order.currency)})`}
+        inputMode="decimal"
+        autoFocus
+        value={value}
+        onChange={e => {
+          setValue(e.target.value);
+          setError(undefined);
+          setConfirming(false);
+        }}
+        placeholder="0"
+        error={error}
+        hint={paid > 0 ? `${formatMoney(paid, order.currency)} paid so far` : undefined}
+      />
+      {confirming && (
+        <p className="rounded-[var(--radius-control)] bg-warning-bg px-3 py-2.5 text-label text-warning">
+          {formatMoney(order.priceMinor, order.currency)} → {formatMoney(priceMinor, order.currency)}.{" "}
+          {leftAfter > 0 ? `You'll have ${leftAfter} change left after this.` : "This is the last change — the price will be locked."}
+        </p>
+      )}
+      <DialogFooter>
+        <Button variant="secondary" onClick={() => onDone(null)} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={save} loading={saving}>
+          {confirming ? "Yes, change price" : firstPrice ? "Set price" : "Save"}
+        </Button>
+      </DialogFooter>
     </>
   );
 }

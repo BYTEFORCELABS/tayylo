@@ -165,8 +165,8 @@ function NewOrderPageInner() {
   if (step === "client") {
     return (
       <>
-        <PageHeader variant="compact" eyebrow="New order · Step 1 of 2" title="Who is it for?" back={true} width="sm" />
-        <PageBody width="sm" className="pb-10">
+        <PageHeader variant="compact" eyebrow="New order · Step 1 of 2" title="Who is it for?" back={true} width="md" />
+        <PageBody width="md" className="pb-10">
           <ClientPicker
             clients={clients}
             loading={clientsLoading}

@@ -187,9 +187,20 @@ export function MaterialHero({ order, clientPhoto, subtitle, subtitleTone = "def
 }
 
 /** Thumbnails of every photo plus an add tile. */
-export function MaterialStrip({ order, onAdd, onOpen }: { order: Order; onAdd: () => void; onOpen: (i: number) => void }) {
+export function MaterialStrip({
+  order,
+  onAdd,
+  onAddStyle,
+  onOpen,
+}: {
+  order: Order;
+  onAdd: () => void;
+  /** Shortcut for the client's style references, right beside the photos. */
+  onAddStyle?: () => void;
+  onOpen: (i: number) => void;
+}) {
   const media = order.media ?? [];
-  if (media.length === 0) return null;
+  if (media.length === 0 && !onAddStyle) return null;
   const cover = coverOf(order);
   return (
     <div className="-mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none sm:mx-0 sm:px-0">
@@ -220,15 +231,28 @@ export function MaterialStrip({ order, onAdd, onOpen }: { order: Order; onAdd: (
           </motion.button>
         ))}
       </AnimatePresence>
-      <button
-        type="button"
-        onClick={onAdd}
-        aria-label="Add photo"
-        className="flex size-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] border border-dashed border-border-strong text-text-tertiary transition-colors hover:border-ink hover:text-ink"
-      >
-        <Plus size={18} strokeWidth={2} />
-        <span className="text-[10px] font-semibold">Add</span>
-      </button>
+      {media.length > 0 && (
+        <button
+          type="button"
+          onClick={onAdd}
+          aria-label="Add photo"
+          className="flex size-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] border border-dashed border-border-strong text-text-tertiary transition-colors hover:border-ink hover:text-ink"
+        >
+          <Plus size={18} strokeWidth={2} />
+          <span className="text-[10px] font-semibold">Add</span>
+        </button>
+      )}
+      {onAddStyle && (
+        <button
+          type="button"
+          onClick={onAddStyle}
+          aria-label="Add the style the client wants"
+          className="flex size-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] border border-dashed border-olive/50 bg-olive-soft/40 text-olive transition-colors hover:border-olive hover:bg-olive-soft"
+        >
+          <Sparkles size={17} strokeWidth={2} />
+          <span className="text-[10px] font-semibold">Add style</span>
+        </button>
+      )}
     </div>
   );
 }

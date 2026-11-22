@@ -4,6 +4,7 @@ import React, { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LayoutGrid, Check, AlertTriangle, ClipboardList, User, Ruler } from "lucide-react";
 import { toast } from "sonner";
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import { Keypad } from "@/components/ui/keypad";
 import { MeasurementCell, MeasurementGrid } from "@/components/ui/measurement";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { SegmentedControl } from "@/components/ui/choice";
 import { List, ListItem } from "@/components/ui/list";
 import { PageBody, PageHeader } from "@/components/ui/page";
 import { BrandLoader } from "@/components/brand/brand-loader";
+import { SuccessMark } from "@/components/brand/success-mark";
 import { EmptyState, ListSkeleton } from "@/components/ui/states";
 import { DeltaChip } from "@/components/ui/tag";
 import {
@@ -59,6 +61,14 @@ function MeasurePageInner() {
   const [template, setTemplate] = React.useState<MeasurementTemplate | null>(null);
   const [previousSet, setPreviousSet] = React.useState<MeasurementSet | null>(null);
   const [fieldIndex, setFieldIndex] = React.useState(0);
+  // Which way the measurement card slides: forward (next) or back (previous).
+  const [slideDir, setSlideDir] = React.useState(1);
+  const [lastFieldIndex, setLastFieldIndex] = React.useState(0);
+  if (fieldIndex !== lastFieldIndex) {
+    setSlideDir(fieldIndex > lastFieldIndex ? 1 : -1);
+    setLastFieldIndex(fieldIndex);
+  }
+  const reduceMotion = useReducedMotion();
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [gridMode, setGridMode] = React.useState(false);
   const [note, setNote] = React.useState("");
@@ -240,9 +250,9 @@ function MeasurePageInner() {
           eyebrow="Record measurements · Step 1 of 3"
           title="Who are you measuring?"
           back={true}
-          width="sm"
+          width="md"
         />
-        <PageBody width="sm" className="pb-10">
+        <PageBody width="md" className="pb-10">
           <ClientPicker
             clients={clients}
             loading={clientsLoading}
@@ -409,9 +419,7 @@ function MeasurePageInner() {
         >
           <DialogContent hideClose>
             <DialogHeader className="items-center pr-0 text-center">
-              <div className="mb-2 flex size-14 items-center justify-center rounded-full bg-success-bg text-success animate-scale-in">
-                <Check size={26} strokeWidth={2.25} />
-              </div>
+              <SuccessMark size={72} className="mb-3" label="Saved" />
               <DialogTitle>Measurements saved</DialogTitle>
               <DialogDescription>
                 {template?.name} for {client?.fullName} is saved as a dated version
@@ -506,9 +514,19 @@ function MeasurePageInner() {
         </div>
       ) : (
         <div className="mx-auto flex w-full max-w-xl flex-1 flex-col px-4 sm:px-6">
-          {/* Field in focus */}
-          <div key={currentField?.key} className="flex flex-1 flex-col justify-center py-4 animate-fade-in">
+          {/* Field in focus — slides to the next body part (or back) */}
+          <div className="relative flex flex-1 flex-col justify-center overflow-hidden py-4">
+            <AnimatePresence mode="popLayout" initial={false} custom={slideDir}>
+              <motion.div
+                key={currentField?.key}
+                custom={slideDir}
+                variants={reduceMotion ? fadeOnly : slideCard}
+                initial="enter"
+                animate="center"
+                exit="exit"
+              >
             <div className="flex items-center gap-4 sm:gap-6">
+              <motion.div custom={slideDir} variants={reduceMotion ? undefined : figureIn} className="shrink-0">
               <MeasurementFigure
                 fieldKey={currentField?.key}
                 label={currentField?.label}
@@ -517,21 +535,26 @@ function MeasurePageInner() {
                 height={196}
                 className="shrink-0 rounded-[var(--radius-card)] bg-surface px-3 pt-3 pb-2 border border-border/70"
               />
-              <div className="flex min-w-0 flex-1 flex-col items-start">
+              </motion.div>
+              <motion.div custom={slideDir} variants={reduceMotion ? undefined : detailsIn} className="flex min-w-0 flex-1 flex-col items-start">
                 <span className="rounded-full bg-surface-sunken px-3 py-1 text-overline uppercase text-text-secondary">
                   {currentField?.group} · {fieldIndex + 1}/{fields.length}
                 </span>
                 <h1 className="mt-3 text-title text-ink">{currentField?.label}</h1>
 
                 <div className="mt-2 flex items-baseline gap-2" aria-live="polite" aria-label={`${currentValue || 0} ${u}`}>
-                  <span
+                  <motion.span
+                    key={currentValue || "empty"}
+                    initial={reduceMotion || !currentValue ? false : { scale: 0.9, y: 4 }}
+                    animate={{ scale: 1, y: 0 }}
+                    transition={{ type: "spring", stiffness: 600, damping: 26 }}
                     className={cn(
-                      "measurement-value text-[60px] font-semibold leading-none sm:text-[76px]",
+                      "measurement-value origin-bottom-left text-[60px] font-semibold leading-none sm:text-[76px]",
                       currentValue ? "text-ink" : "text-border-strong"
                     )}
                   >
                     {currentValue || "0"}
-                  </span>
+                  </motion.span>
                   <span className="text-[18px] font-medium text-text-tertiary">{u}</span>
                 </div>
 
@@ -541,7 +564,7 @@ function MeasurePageInner() {
                     {previousSet && <> · {formatDate(previousSet.takenAt, { year: false })}</>}
                   </p>
                 )}
-              </div>
+              </motion.div>
             </div>
 
             <div className="mt-3 flex min-h-7 flex-col items-center gap-2 text-center">
@@ -553,6 +576,8 @@ function MeasurePageInner() {
                 </p>
               )}
             </div>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           <div className="pb-[max(16px,env(safe-area-inset-bottom))]">
@@ -580,3 +605,34 @@ export default function MeasurePage() {
     </Suspense>
   );
 }
+
+// ---------------------------------------------------- measurement slides
+
+const slideSpring = { type: "spring" as const, stiffness: 320, damping: 32, mass: 0.9 };
+
+/** The whole card glides in from the side you're heading towards. */
+const slideCard: Variants = {
+  enter: (dir: number) => ({ x: dir * 72, opacity: 0 }),
+  center: { x: 0, opacity: 1, transition: { ...slideSpring, staggerChildren: 0.05 } },
+  exit: (dir: number) => ({ x: dir * -72, opacity: 0, transition: { duration: 0.16, ease: "easeIn" } }),
+};
+
+/** The body figure turns in slightly behind the card for depth. */
+const figureIn: Variants = {
+  enter: (dir: number) => ({ x: dir * 28, scale: 0.94, rotate: dir * 2 }),
+  center: { x: 0, scale: 1, rotate: 0, transition: slideSpring },
+  exit: { scale: 0.97 },
+};
+
+/** Name and value follow a beat later. */
+const detailsIn: Variants = {
+  enter: (dir: number) => ({ x: dir * 44, opacity: 0 }),
+  center: { x: 0, opacity: 1, transition: { ...slideSpring, delay: 0.04 } },
+  exit: { opacity: 0 },
+};
+
+const fadeOnly: Variants = {
+  enter: { opacity: 0 },
+  center: { opacity: 1 },
+  exit: { opacity: 0 },
+};

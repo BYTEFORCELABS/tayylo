@@ -3,14 +3,15 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, Search, Ruler, ClipboardList, UserPlus, CheckCircle2, ChevronRight } from "lucide-react";
-import { Panel } from "@/components/ui/card";
+import { Bell, Search, Ruler, ClipboardList, UserPlus, ChevronRight, ShoppingCart } from "lucide-react";
+import { Panel, TapeRule } from "@/components/ui/card";
+import { SuccessMark } from "@/components/brand/success-mark";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { List, ListItem, IconTile } from "@/components/ui/list";
 import { PageBody, PageHeader, Section } from "@/components/ui/page";
 import { ErrorState, LoadingRegion, Skeleton, ListSkeleton } from "@/components/ui/states";
-import { OrderListItem } from "@/components/order-list-item";
+import { OrderListItem, OrderRow } from "@/components/order-list-item";
 import { RecordPaymentDialog } from "@/components/payment-dialog";
 import { NotificationsSheet, useUnreadCount } from "@/components/notifications-sheet";
 import { useShell } from "@/components/shell/shell-context";
@@ -19,7 +20,19 @@ import { useBusiness } from "@/lib/use-business";
 import { daysUntil, formatMoney, formatWeekday, greeting } from "@/lib/format";
 import { balanceMinor, collectedInMonth, garmentOf, isActive, isOverdue, normalizeStatus } from "@/lib/orders";
 import { deriveNotifications } from "@/lib/notifications";
-import type { Order } from "@/types";
+import type { Customer, Order } from "@/types";
+
+/** Garment categories with photos, for the Home "Category" row. */
+const CATEGORIES = [
+  { key: "suit", label: "Suits", image: "/garments/suit.jpg" },
+  { key: "agbada", label: "Agbada", image: "/garments/agbada.jpg" },
+  { key: "senator", label: "Senator", image: "/garments/senator.jpg" },
+  { key: "kaftan", label: "Kaftan", image: "/garments/kaftan.jpg" },
+  { key: "blazer", label: "Blazers", image: "/garments/blazer.jpg" },
+  { key: "dress", label: "Dresses", image: "/garments/dress.jpg" },
+  { key: "shirt", label: "Shirts", image: "/garments/shirt.jpg" },
+  { key: "trousers", label: "Trousers", image: "/garments/trousers.jpg" },
+];
 
 export default function TodayPage() {
   const router = useRouter();
@@ -66,7 +79,7 @@ export default function TodayPage() {
       title={firstName ? `${greeting(now)}, ${firstName}` : greeting(now)}
       actions={
         <>
-          <Button variant="secondary" size="icon" onClick={openSearch} aria-label="Search" className="lg:hidden">
+          <Button variant="ghost" size="icon" onClick={openSearch} aria-label="Search" className="lg:hidden">
             <Search />
           </Button>
           <Button
@@ -74,6 +87,7 @@ export default function TodayPage() {
             size="icon"
             onClick={() => setNotifOpen(true)}
             aria-label={unread > 0 ? `Notifications, ${unread} new` : "Notifications"}
+            className="max-lg:border-transparent max-lg:bg-transparent max-lg:bg-none max-lg:shadow-none"
           >
             <Bell />
             {unread > 0 && (
@@ -132,7 +146,19 @@ export default function TodayPage() {
         {isNewWorkspace ? (
           <GettingStarted businessName={business?.name} />
         ) : (
-          <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+          <>
+          <MobileHome
+            collected={collected}
+            outstanding={outstanding}
+            currency={currency}
+            monthName={monthName}
+            active={active}
+            orders={orders}
+            clients={clients}
+            onMeasure={() => router.push("/measure")}
+            onNewOrder={() => router.push("/orders/new")}
+          />
+          <div className="hidden gap-x-10 gap-y-8 lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
             {/* -------- primary column -------- */}
             <div className="min-w-0">
               <Panel className="animate-rise-in">
@@ -179,9 +205,7 @@ export default function TodayPage() {
               >
                 {attention.length === 0 ? (
                   <div className="flex items-center gap-3 rounded-[var(--radius-card)] bg-surface px-4 py-4 border border-border/70">
-                    <IconTile tone="success" size="sm">
-                      <CheckCircle2 />
-                    </IconTile>
+                    <SuccessMark size={34} animated={false} />
                     <p className="text-label text-text-secondary">Nothing urgent. Every active order is on schedule.</p>
                   </div>
                 ) : (
@@ -271,6 +295,7 @@ export default function TodayPage() {
               )}
             </div>
           </div>
+          </>
         )}
       </PageBody>
 
@@ -328,5 +353,129 @@ function GettingStarted({ businessName }: { businessName?: string }) {
         ))}
       </List>
     </div>
+  );
+}
+
+// ------------------------------------------------------------ phone layout
+
+function MobileHome({
+  collected,
+  outstanding,
+  currency,
+  monthName,
+  active,
+  orders,
+  clients,
+  onMeasure,
+  onNewOrder,
+}: {
+  collected: number;
+  outstanding: number;
+  currency: string;
+  monthName: string;
+  active: Order[];
+  orders: Order[];
+  clients: Customer[];
+  onMeasure: () => void;
+  onNewOrder: () => void;
+}) {
+  const photos = Object.fromEntries(clients.map(c => [c.id, c.photoUrl])) as Record<string, string | undefined>;
+  // Categories the studio actually sews come first.
+  const used = (key: string) => orders.filter(o => o.items.some(i => i.garmentType.toLowerCase().includes(key))).length;
+  const categories = [...CATEGORIES].sort((a, b) => used(b.key) - used(a.key));
+
+  return (
+    <div className="animate-rise-in lg:hidden">
+      {/* Summary: this month's takings on a white card inside the dark panel */}
+      <div className="rounded-[28px] bg-panel p-2 text-text-inverse">
+        <div className="relative overflow-hidden rounded-[22px] bg-surface-raised px-4 pt-8 pb-5 text-center text-ink">
+          <TapeRule className="h-6 text-ink opacity-25" />
+          <p className="text-label text-text-secondary">Collected in {monthName}</p>
+          <p className="tabular mt-1 text-[32px] font-semibold leading-tight tracking-tight">{formatMoney(collected, currency)}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-1 px-1 pt-1">
+          <PanelStat
+            href="/orders?filter=owing"
+            label="Outstanding balance"
+            value={formatMoney(outstanding, currency)}
+          />
+          <PanelStat
+            href="/orders?filter=active"
+            label="In production"
+            value={`${active.length} ${active.length === 1 ? "order" : "orders"}`}
+          />
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <Button size="lg" onClick={onMeasure}>
+          <Ruler />
+          Measure
+        </Button>
+        <Button size="lg" variant="secondary" onClick={onNewOrder}>
+          <ShoppingCart />
+          New order
+        </Button>
+      </div>
+
+      {/* Category */}
+      <section className="mt-7" aria-label="Category">
+        <Link href="/orders" className="mb-3 flex items-center justify-between px-1">
+          <h2 className="text-[17px] font-medium text-text-secondary">Category</h2>
+          <ChevronRight size={20} strokeWidth={1.75} className="text-text-tertiary" />
+        </Link>
+        <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none">
+          {categories.map(c => (
+            <Link
+              key={c.key}
+              href={`/orders?q=${encodeURIComponent(c.label.replace(/e?s$/, ""))}`}
+              className="w-[124px] shrink-0 rounded-[18px] border border-border/60 bg-surface-raised p-1.5 transition-transform active:scale-[0.98]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- static local photos */}
+              <img src={c.image} alt="" className="aspect-[1/1] w-full rounded-[13px] object-cover" loading="lazy" />
+              <span className="block px-1 pt-1.5 pb-0.5 text-[14px] text-text-secondary">{c.label}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Active orders */}
+      <section className="mt-7" aria-label="Active orders">
+        <Link href="/orders" className="mb-1 flex items-center justify-between px-1">
+          <h2 className="flex items-center gap-2 text-[17px] font-medium text-text-secondary">
+            Active orders
+            <span className="tabular rounded-[6px] bg-surface-sunken px-1.5 text-[12px] leading-5 text-text-secondary">{active.length}</span>
+          </h2>
+          <ChevronRight size={20} strokeWidth={1.75} className="text-text-tertiary" />
+        </Link>
+        {active.length === 0 ? (
+          <p className="rounded-[var(--radius-card)] border border-border/70 bg-surface px-4 py-4 text-label text-text-secondary">
+            No active orders. Tap New order to start one.
+          </p>
+        ) : (
+          <div className="divide-y divide-divider/70">
+            {active.slice(0, 6).map(o => (
+              <OrderRow key={o.id} order={o} clientPhoto={photos[o.customerId]} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** A tappable figure on the dark summary card. */
+function PanelStat({ href, label, value }: { href: string; label: string; value: string }) {
+  return (
+    <Link
+      href={href}
+      className="group min-w-0 rounded-[18px] px-3 py-3 transition-colors hover:bg-white/[0.06] active:bg-white/10"
+    >
+      <span className="flex items-center justify-between gap-1 text-caption text-text-on-panel-muted">
+        {label}
+        <ChevronRight size={15} strokeWidth={2} className="shrink-0 opacity-60 transition-transform group-hover:translate-x-0.5" />
+      </span>
+      <span className="tabular mt-1 block truncate text-[19px] font-semibold text-text-inverse">{value}</span>
+    </Link>
   );
 }

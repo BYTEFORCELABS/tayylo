@@ -5,14 +5,14 @@ import type { UnitSystem } from "@/types";
 
 // ---------------------------------------------------------------- money
 
-const moneyFormatters = new Map<string, Intl.NumberFormat>();
+const moneyFormatters = new Map<string, (major: number) => string>();
 
 function moneyFormatter(currency: string, compact = false) {
   const key = `${currency}:${compact}`;
   let f = moneyFormatters.get(key);
   if (!f) {
     try {
-      f = new Intl.NumberFormat(undefined, {
+      const nf = new Intl.NumberFormat(undefined, {
         style: "currency",
         currency,
         currencyDisplay: "narrowSymbol",
@@ -20,9 +20,15 @@ function moneyFormatter(currency: string, compact = false) {
         minimumFractionDigits: 0,
         notation: compact ? "compact" : "standard",
       });
+      f = (major: number) => nf.format(major);
     } catch {
-      // Unknown currency code — fall back to a plain number with the code.
-      f = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+      // Unknown currency code — fall back to a plain number with the code,
+      // so the amount never loses its currency (e.g. "NAIRA 1,500").
+      const plain = new Intl.NumberFormat(undefined, {
+        maximumFractionDigits: compact ? 1 : 0,
+        notation: compact ? "compact" : "standard",
+      });
+      f = (major: number) => `${currency} ${plain.format(major)}`;
     }
     moneyFormatters.set(key, f);
   }
@@ -31,7 +37,7 @@ function moneyFormatter(currency: string, compact = false) {
 
 /** Formats an amount stored in minor units (e.g. kobo, cents). */
 export function formatMoney(minor: number, currency = "NGN", opts?: { compact?: boolean }) {
-  return moneyFormatter(currency, opts?.compact).format(minor / 100);
+  return moneyFormatter(currency, opts?.compact)(minor / 100);
 }
 
 /** Just the symbol for a currency code, e.g. "₦" for NGN. */
@@ -141,9 +147,12 @@ export function parseMeasurement(raw: string, unit: UnitSystem): number {
   const clean = raw.trim();
   if (unit === "metric") return Math.round((parseFloat(clean) || 0) * 10);
   let val = 0;
+  // Typed or imported ASCII fractions: "32 1/2", "32-1/2", "1/2".
+  const ascii = clean.match(/^(\d+(?:\.\d+)?)?[\s-]*(\d+)\/(\d+)$/);
   if (clean.includes("¼")) val = (parseFloat(clean.replace("¼", "")) || 0) + 0.25;
   else if (clean.includes("½")) val = (parseFloat(clean.replace("½", "")) || 0) + 0.5;
   else if (clean.includes("¾")) val = (parseFloat(clean.replace("¾", "")) || 0) + 0.75;
+  else if (ascii && Number(ascii[3]) > 0) val = (parseFloat(ascii[1] ?? "0") || 0) + Number(ascii[2]) / Number(ascii[3]);
   else val = parseFloat(clean) || 0;
   return Math.round(val * 25.4);
 }

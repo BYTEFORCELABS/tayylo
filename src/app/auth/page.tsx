@@ -141,6 +141,15 @@ function AuthPageInner() {
 
   const handleOAuth = async (provider: "google" | "apple") => {
     setError(null);
+    // Google/Apple are only registered on the server once their credentials
+    // are configured; ask Auth.js which providers exist before redirecting.
+    const available = await fetch("/api/auth/providers")
+      .then(r => (r.ok ? (r.json() as Promise<Record<string, unknown>>) : {}))
+      .catch(() => ({}) as Record<string, unknown>);
+    if (!(provider in available)) {
+      setError(`${provider === "google" ? "Google" : "Apple"} sign-in isn't available yet. Use your email and password.`);
+      return;
+    }
     await signIn(provider, { callbackUrl: "/today" });
   };
 

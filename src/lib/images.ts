@@ -81,3 +81,25 @@ export async function preparePhoto(
   if (!blob) throw new Error("Couldn't prepare this photo");
   return { blob, width, height, previewUrl: URL.createObjectURL(blob) };
 }
+
+/**
+ * Studio logo → small PNG data URL (keeps transparency). Shrinks until it
+ * fits comfortably inline on documents.
+ */
+export async function prepareLogo(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Choose an image file");
+  const img = await loadImage(await readFile(file));
+  for (const side of [480, 360, 240]) {
+    const scale = Math.min(1, side / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image processing isn't available in this browser");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const url = canvas.toDataURL("image/png");
+    if (url.length <= 380_000) return url;
+  }
+  throw new Error("That logo is too detailed — try a simpler or smaller image");
+}

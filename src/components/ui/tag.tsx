@@ -57,16 +57,16 @@ Tag.displayName = "Tag";
 
 // ---------------------------------------------------------------- Status
 
-type Tone = "neutral" | "info" | "progress" | "olive" | "success" | "danger" | "muted";
+type Tone = "neutral" | "info" | "progress" | "olive" | "success" | "bright" | "pending" | "danger" | "muted";
 
 const statusTone: Record<string, Tone> = {
-  pending: "neutral",
+  pending: "pending",
   cutting: "info",
   sewing: "info",
   fitting: "olive",
   alterations: "progress",
   ready: "success",
-  delivered: "muted",
+  delivered: "bright",
   overdue: "danger",
   cancelled: "muted",
 };
@@ -77,6 +77,10 @@ const toneClasses: Record<Tone, { dot: string; text: string; bg: string }> = {
   progress: { dot: "bg-warning", text: "text-warning", bg: "bg-warning-bg" },
   olive: { dot: "bg-olive", text: "text-olive-deep", bg: "bg-olive-soft" },
   success: { dot: "bg-success", text: "text-success", bg: "bg-success-bg" },
+  /** Vivid green — the job is done and handed over. */
+  bright: { dot: "bg-[#16A34A]", text: "text-[#13803A]", bg: "bg-[#D9F7E1]" },
+  /** Warm yellow — received, not started yet. */
+  pending: { dot: "bg-[#E0A800]", text: "text-[#8A6400]", bg: "bg-[#FFF3C4]" },
   danger: { dot: "bg-danger", text: "text-danger", bg: "bg-danger-bg" },
   muted: { dot: "bg-border-strong", text: "text-text-tertiary", bg: "bg-surface-sunken" },
 };
@@ -86,10 +90,11 @@ interface StatusTagProps extends React.HTMLAttributes<HTMLSpanElement> {
   label?: string;
   /** `pill` = tinted background; `dot` = text with a dot only (dense lists). */
   appearance?: "pill" | "dot";
+  size?: "sm" | "md";
 }
 
 const StatusTag = React.forwardRef<HTMLSpanElement, StatusTagProps>(
-  ({ status, label, appearance = "pill", className, ...props }, ref) => {
+  ({ status, label, appearance = "pill", size = "md", className, ...props }, ref) => {
     const key = status === "overdue" ? "overdue" : (normalizeStatus(status) ?? "");
     const t = toneClasses[statusTone[key] ?? "neutral"];
     const text = label ?? statusLabel(status);
@@ -97,8 +102,9 @@ const StatusTag = React.forwardRef<HTMLSpanElement, StatusTagProps>(
       <span
         ref={ref}
         className={cn(
-          "inline-flex items-center gap-1.5 whitespace-nowrap text-caption font-semibold",
-          appearance === "pill" && cn("h-6 rounded-full px-2.5", t.bg),
+          "inline-flex items-center gap-1.5 whitespace-nowrap font-semibold",
+          size === "sm" ? "text-[11px]" : "text-caption",
+          appearance === "pill" && cn("rounded-full", size === "sm" ? "h-5 px-2" : "h-6 px-2.5", t.bg),
           t.text,
           className
         )}

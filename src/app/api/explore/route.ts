@@ -66,7 +66,13 @@ export async function GET(request: Request) {
 }
 
 const createSchema = z.object({
-  imageUrl: z.string().url().max(2000),
+  // Only https images (the upload route returns an https Vercel Blob URL).
+  // z.url() alone accepts any scheme, including javascript: and ftp:.
+  imageUrl: z
+    .string()
+    .url()
+    .max(2000)
+    .refine(u => /^https:\/\//i.test(u), "Photo must be an https URL"),
   caption: z.string().trim().max(280).optional(),
   country: z.string().trim().min(2).max(60),
   category: z.enum(EXPLORE_CATEGORIES),

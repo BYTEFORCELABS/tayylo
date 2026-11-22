@@ -30,7 +30,12 @@ export async function POST(request: Request) {
   const passwordHash = await bcrypt.hash(password, 12);
   await prisma.$transaction([
     prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash } }),
-    prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { usedAt: new Date() } }),
+    // Burn this link and every other outstanding one for the account, so an
+    // older reset email can't change the password again.
+    prisma.passwordResetToken.updateMany({
+      where: { userId: resetToken.userId, usedAt: null },
+      data: { usedAt: new Date() },
+    }),
   ]);
 
   return Response.json({ ok: true });

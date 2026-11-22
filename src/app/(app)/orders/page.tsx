@@ -1,15 +1,15 @@
 "use client";
 
-import React from "react";
-import { useRouter } from "next/navigation";
-import { Plus, ClipboardList } from "lucide-react";
+import React, { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Plus, ClipboardList, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Chip, SearchField } from "@/components/ui/choice";
-import { List } from "@/components/ui/list";
+import { SearchField } from "@/components/ui/choice";
 import { PageBody, PageHeader } from "@/components/ui/page";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/ui/states";
-import { OrderListItem } from "@/components/order-list-item";
-import { useOrders } from "@/lib/queries";
+import { OrderRow } from "@/components/order-list-item";
+import { useCustomers, useOrders } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
 import { balanceMinor, isActive, isOverdue, normalizeStatus } from "@/lib/orders";
 import { useBusiness } from "@/lib/use-business";
@@ -18,19 +18,40 @@ import type { Order, OrderStatusName } from "@/types";
 type Filter = "active" | "overdue" | "owing" | OrderStatusName | "all";
 
 const FILTERS: { key: Filter; label: string }[] = [
+  { key: "all", label: "All orders" },
   { key: "active", label: "Active" },
-  { key: "overdue", label: "Overdue" },
-  { key: "owing", label: "Balance due" },
   { key: "pending", label: "Pending" },
   { key: "cutting", label: "Cutting" },
+  { key: "overdue", label: "Overdue" },
+  { key: "owing", label: "Balance due" },
   { key: "sewing", label: "Sewing" },
   { key: "fitting", label: "Fitting" },
   { key: "alterations", label: "Alterations" },
   { key: "ready", label: "Ready" },
   { key: "delivered", label: "Delivered" },
   { key: "cancelled", label: "Cancelled" },
-  { key: "all", label: "All" },
 ];
+
+/** Tabs that always show, even at zero (like the design's "Cutting 0"). */
+const CORE_TABS: Filter[] = ["all", "active", "pending", "cutting"];
+
+function dayKey(d: string) {
+  const x = new Date(d);
+  return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+}
+
+/** "Today", "Yesterday" or "23rd Aug, 2026". */
+function dayLabel(d: string) {
+  const date = new Date(d);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  if (dayKey(d) === dayKey(today.toISOString())) return "Today";
+  if (dayKey(d) === dayKey(yesterday.toISOString())) return "Yesterday";
+  const n = date.getDate();
+  const suffix = n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th";
+  return `${n}${suffix} ${date.toLocaleDateString("en-GB", { month: "short" })}, ${date.getFullYear()}`;
+}
 
 function matches(o: Order, f: Filter) {
   switch (f) {
@@ -47,14 +68,26 @@ function matches(o: Order, f: Filter) {
   }
 }
 
-export default function OrdersPage() {
+function OrdersPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { currency } = useBusiness();
   const ordersQ = useOrders();
+  const customersQ = useCustomers();
+  const clientPhotos = React.useMemo(
+    () => Object.fromEntries((customersQ.data ?? []).map(c => [c.id, c.photoUrl])) as Record<string, string | undefined>,
+    [customersQ.data]
+  );
   const orders = React.useMemo(() => ordersQ.data ?? [], [ordersQ.data]);
   const status: "loading" | "ready" | "error" = ordersQ.data ? "ready" : ordersQ.status;
-  const [filter, setFilter] = React.useState<Filter>("active");
-  const [search, setSearch] = React.useState("");
+  const initialQ = searchParams.get("q") ?? "";
+  // `?filter=owing` / `?filter=active` (from Home's summary card) opens on that tab.
+  const filterParam = searchParams.get("filter");
+  const [filter, setFilter] = React.useState<Filter>(
+    FILTERS.some(f => f.key === filterParam) ? (filterParam as Filter) : "all"
+  );
+  const [search, setSearch] = React.useState(initialQ);
+  const [searchOpen, setSearchOpen] = React.useState(!!initialQ);
 
 
   const q = search.trim().toLowerCase();
@@ -67,9 +100,16 @@ export default function OrdersPage() {
         o.number.toLowerCase().includes(q) ||
         o.items.some(i => i.garmentType.toLowerCase().includes(q) || i.styleNotes?.toLowerCase().includes(q))
     )
-    .sort((a, b) =>
-      isActive(a) && isActive(b) ? +new Date(a.dueAt) - +new Date(b.dueAt) : +new Date(b.createdAt) - +new Date(a.createdAt)
-    );
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+
+  // Grouped by the day each order was taken: Today, Yesterday, 23rd Aug…
+  const groups: { label: string; orders: Order[] }[] = [];
+  for (const o of filtered) {
+    const label = dayLabel(o.createdAt);
+    const last = groups[groups.length - 1];
+    if (last?.label === label) last.orders.push(o);
+    else groups.push({ label, orders: [o] });
+  }
 
   const counts = React.useMemo(() => {
     const c: Partial<Record<Filter, number>> = {};
@@ -77,7 +117,7 @@ export default function OrdersPage() {
     return c;
   }, [orders]);
 
-  const visibleFilters = FILTERS.filter(f => ["active", "all"].includes(f.key) || (counts[f.key] ?? 0) > 0 || f.key === filter);
+  const visibleFilters = FILTERS.filter(f => CORE_TABS.includes(f.key) || (counts[f.key] ?? 0) > 0 || f.key === filter);
   const filteredBalance = filtered.reduce((s, o) => s + (normalizeStatus(o.statusName) === "cancelled" ? 0 : balanceMinor(o)), 0);
 
   return (
@@ -90,21 +130,68 @@ export default function OrdersPage() {
             : undefined
         }
         actions={
-          <Button onClick={() => router.push("/orders/new")}>
-            <Plus />
-            <span className="max-sm:sr-only">New order</span>
-          </Button>
+          <>
+            {orders.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Search orders"
+                aria-pressed={searchOpen}
+                onClick={() => setSearchOpen(o => !o)}
+                className="lg:hidden"
+              >
+                <Search />
+              </Button>
+            )}
+            <Button onClick={() => router.push("/orders/new")}>
+              <Plus />
+              New order
+            </Button>
+          </>
         }
       >
         {orders.length > 0 && (
-          <div className="space-y-3 pb-4">
-            <SearchField value={search} onValueChange={setSearch} placeholder="Search client, order or garment" />
-            <div role="toolbar" aria-label="Filter orders" className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0">
-              {visibleFilters.map(f => (
-                <Chip key={f.key} size="sm" selected={filter === f.key} count={counts[f.key]} onClick={() => setFilter(f.key)}>
-                  {f.label}
-                </Chip>
-              ))}
+          <div className="space-y-3 pb-3">
+            <SearchField
+              value={search}
+              onValueChange={setSearch}
+              placeholder="Search client, order or garment"
+              className={cn(!searchOpen && "max-lg:hidden")}
+              autoFocus={searchOpen && !initialQ}
+            />
+            <div
+              role="tablist"
+              aria-label="Filter orders"
+              className="-mx-4 flex overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0"
+            >
+              <div className="flex gap-1 rounded-full bg-surface-sunken p-1">
+                {visibleFilters.map(f => {
+                  const selected = filter === f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      onClick={() => setFilter(f.key)}
+                      className={cn(
+                        "flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 text-[13.5px] transition-[background-color,color,box-shadow] duration-[var(--duration-fast)]",
+                        selected ? "bg-surface-raised font-semibold text-ink shadow-[var(--shadow-xs)]" : "font-medium text-text-secondary hover:text-ink"
+                      )}
+                    >
+                      {f.label}
+                      <span
+                        className={cn(
+                          "tabular min-w-5 rounded-[6px] px-1 text-center text-[11px] leading-5",
+                          selected ? "bg-surface-sunken text-ink" : "bg-surface-raised/70 text-text-tertiary"
+                        )}
+                      >
+                        {counts[f.key] ?? 0}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
@@ -145,16 +232,23 @@ export default function OrdersPage() {
                 <span className="tabular font-semibold text-ink">{formatMoney(filteredBalance, currency)}</span> still to collect
               </p>
             )}
-            <List>
-              {filtered.map(o => (
-                <OrderListItem key={o.id} order={o} />
+            <div className="space-y-5">
+              {groups.map(g => (
+                <section key={g.label} aria-label={g.label}>
+                  <h2 className="px-1 pb-1 text-[14px] font-medium text-text-secondary">{g.label}</h2>
+                  <div className="divide-y divide-divider/70">
+                    {g.orders.map(o => (
+                      <OrderRow key={o.id} order={o} clientPhoto={clientPhotos[o.customerId]} />
+                    ))}
+                  </div>
+                </section>
               ))}
-            </List>
+            </div>
             {filtered.length > 0 && filter === "active" && counts.delivered ? (
               <p className="mt-4 text-center text-caption text-text-tertiary">
                 Delivered and cancelled orders are under{" "}
                 <button className="font-semibold text-olive underline-offset-2 hover:underline" onClick={() => setFilter("all")}>
-                  All
+                  All orders
                 </button>
                 .
               </p>
@@ -163,5 +257,13 @@ export default function OrdersPage() {
         )}
       </PageBody>
     </>
+  );
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense>
+      <OrdersPageInner />
+    </Suspense>
   );
 }
