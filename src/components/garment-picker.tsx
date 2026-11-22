@@ -72,7 +72,7 @@ export function GarmentPicker({ value, onChange, studioGarments = [], onCustom, 
         </div>
       )}
 
-      <div role="listbox" aria-label="Garment" className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+      <div role="listbox" aria-label="Garment" className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-6">
         {shown.map(icon => {
           const selected = icon.id === selectedId;
           return (
