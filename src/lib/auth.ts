@@ -43,17 +43,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { id: user.id, email: user.email, role: user.role };
       },
     }),
-    // Inert until real provider credentials are added to .env.local — clicking
-    // these buttons will show a clear "not configured" error rather than
-    // silently failing, same situation as before this migration.
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-    }),
-    Apple({
-      clientId: process.env.APPLE_CLIENT_ID ?? "",
-      clientSecret: process.env.APPLE_CLIENT_SECRET ?? "",
-    }),
+    // Google / Apple are only offered once real OAuth credentials are set.
+    // There is no database adapter, so first-time OAuth users would not get a
+    // User row — finish that before turning these on in production.
+    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+      ? [Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
+      : []),
+    ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
+      ? [Apple({ clientId: process.env.APPLE_CLIENT_ID, clientSecret: process.env.APPLE_CLIENT_SECRET })]
+      : []),
   ],
   callbacks: {
     jwt({ token, user }) {

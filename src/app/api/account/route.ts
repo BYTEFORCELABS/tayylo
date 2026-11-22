@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireUserId, errorResponse, forgetBusiness } from "@/lib/auth-helpers";
+import { requireUserId, errorResponse } from "@/lib/auth-helpers";
 
 /**
  * Deletes the signed-in user's account entirely — business, customers,
@@ -15,7 +15,6 @@ export async function DELETE() {
   try {
     const userId = await requireUserId();
     await prisma.user.delete({ where: { id: userId } });
-    forgetBusiness(userId);
     return Response.json({ ok: true });
   } catch (error) {
     return errorResponse(error);

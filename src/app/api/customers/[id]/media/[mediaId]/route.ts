@@ -7,7 +7,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { id, mediaId } = await params;
 
     const media = await prisma.media.findUnique({ where: { id: mediaId } });
-    if (!media || media.businessId !== business.id || media.ownerId !== id) {
+    if (!media || media.businessId !== business.id || media.ownerType !== "customer" || media.ownerId !== id) {
       return Response.json({ ok: false }, { status: 404 });
     }
 

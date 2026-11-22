@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { requireUserAndBusiness, errorResponse, ApiError } from "@/lib/auth-helpers";
 import { mediaForOwner } from "@/lib/media";
+import { customerPatchSchema } from "@/lib/customer-schema";
+import { readBody } from "@/lib/validation";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -28,14 +30,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       throw new ApiError(404, "Client not found");
     }
 
-    const body = await request.json();
+    const body = await readBody(request, customerPatchSchema);
+    // Only the fields present in the body change.
     const data: Record<string, unknown> = {};
-    if (typeof body.fullName === "string") data.fullName = body.fullName;
-    if (Array.isArray(body.phones)) data.phones = body.phones;
-    if (body.email !== undefined) data.email = body.email || null;
-    if (Array.isArray(body.tags)) data.tags = body.tags;
-    if (body.notes !== undefined) data.notes = body.notes || null;
-    if (body.photoUrl !== undefined) data.photoUrl = body.photoUrl || null;
+    for (const key of ["fullName", "phones", "email", "tags", "notes", "photoUrl"] as const) {
+      if (body[key] !== undefined) data[key] = body[key];
+    }
 
     const customer = await prisma.customer.update({ where: { id }, data });
     const media = await mediaForOwner(business.id, "customer", id);
