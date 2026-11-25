@@ -17,8 +17,8 @@ Set these in Vercel → Project → Settings → Environment Variables.
 | `RESEND_API_KEY` | yes | Sends password-reset emails. |
 | `EMAIL_FROM` | yes | Sender, e.g. `Tayylo <noreply@yourdomain>`. The domain must be verified in Resend. |
 | `BLOB_READ_WRITE_TOKEN` | yes for Explore uploads | Created automatically when you connect a Vercel Blob store to the project. |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no | Leave unset: Google sign-in stays hidden. See "Not done yet". |
-| `APPLE_CLIENT_ID` / `APPLE_CLIENT_SECRET` | no | Same as Google. |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no | Enables "Continue with Google" on the web. Accounts are linked the same way as Apple. |
+| `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` / `APPLE_CLIENT_ID` (Services ID) / `APPLE_BUNDLE_ID` | for Sign in with Apple | Server-only. See [SIGN_IN_WITH_APPLE.md](SIGN_IN_WITH_APPLE.md). `APPLE_CLIENT_SECRET` is no longer used. |
 
 Give Preview deployments their own Neon branch for `DATABASE_URL` / `DIRECT_URL`.
 Otherwise every preview build runs migrations against production.
@@ -56,9 +56,8 @@ refuses to run against a non-local database. GitHub Actions
 
 - **Rate limiting** on sign-in, sign-up and forgot-password. On Vercel this
   needs shared storage (e.g. Upstash Redis via the Vercel Marketplace).
-- **Google / Apple sign-in.** The app has no Auth.js database adapter, so a
-  first-time OAuth user would get no `User` row. Finish this before setting the
-  provider env vars.
+- **Google sign-in in the iOS app.** The web flow works (same identity table
+  as Apple); the app still needs a native Google client.
 - **Photos stored inline.** Client and order photos are base64 data URLs in
   Postgres (capped at ~1.5 MB each). Moving them to Blob would keep the
   database small.

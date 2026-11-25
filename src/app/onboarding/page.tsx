@@ -13,7 +13,7 @@ import { Input, Select } from "@/components/ui/input";
 import { BrandLoader } from "@/components/brand/brand-loader";
 import { GarmentIcon } from "@/components/brand/garment-icon";
 import { businessRepo } from "@/lib/data/store";
-import { setCachedBusiness } from "@/lib/use-business";
+import { setCachedBusiness, useMe } from "@/lib/use-business";
 import { CURRENCIES, currencySymbol, formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -34,12 +34,16 @@ export default function OnboardingPage() {
   const [step, setStep] = React.useState(0);
   const [dir, setDir] = React.useState(1);
   const [businessName, setBusinessName] = React.useState("");
-  const [ownerName, setOwnerName] = React.useState("");
+  // null until edited: falls back to the account name (Sign in with Apple
+  // shares it only once).
+  const [ownerNameInput, setOwnerName] = React.useState<string | null>(null);
   const [currency, setCurrency] = React.useState("NGN");
   const [unit, setUnit] = React.useState<"imperial" | "metric">("imperial");
   const [garments, setGarments] = React.useState<string[]>(["Suits", "Shirts", "Agbada", "Senator"]);
   const [nameError, setNameError] = React.useState<string>();
   const [saving, setSaving] = React.useState(false);
+  const { me } = useMe();
+  const ownerName = ownerNameInput ?? me?.name ?? "";
 
   React.useEffect(() => {
     if (status === "unauthenticated") router.replace("/auth?mode=signin");

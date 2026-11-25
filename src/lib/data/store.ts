@@ -326,7 +326,24 @@ export interface Me {
   id: string;
   email: string;
   role: "tailor" | "customer";
+  /** Display name — e.g. from Sign in with Apple's first authorization. */
+  name?: string | null;
 }
+
+export interface SignInMethods {
+  hasPassword: boolean;
+  identities: { provider: "apple" | "google"; email: string | null; isPrivateEmail: boolean; linkedAt: string }[];
+  available: { appleWeb: boolean; appleNative: boolean; google: boolean };
+}
+
+export const signInMethodsRepo = {
+  async get(): Promise<SignInMethods | null> {
+    return api<SignInMethods | null>("/api/me/identities");
+  },
+  async disconnect(provider: "apple" | "google"): Promise<void> {
+    await api(`/api/me/identities/${provider}`, { method: "DELETE" });
+  },
+};
 
 export const meRepo = {
   async get(): Promise<Me | null> {

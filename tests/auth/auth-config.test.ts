@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { createUser, resetDb } from "../helpers";
+import { createUser, prisma, resetDb } from "../helpers";
 
 // Test the REAL Auth.js config in src/lib/auth.ts: capture the object passed
 // to NextAuth() and exercise its credentials authorize + callbacks directly.
@@ -11,12 +11,16 @@ interface CapturedConfig {
   pages: { signIn: string };
   providers: { id: string; authorize?: (c: unknown) => Promise<unknown> }[];
   callbacks: {
+    signIn: (args: { user: Record<string, unknown>; account?: Record<string, unknown> | null; profile?: Record<string, unknown> }) => Promise<boolean | string>;
     jwt: (args: { token: Record<string, unknown>; user?: Record<string, unknown> }) => Record<string, unknown>;
     session: (args: { session: { user: Record<string, unknown> }; token: Record<string, unknown> }) => { user: Record<string, unknown> };
   };
 }
 const captured: { config?: CapturedConfig } = {};
 vi.mock("next-auth", () => ({
+  CredentialsSignin: class CredentialsSignin extends Error {
+    code = "credentials";
+  },
   default: (config: unknown) => {
     captured.config = config as CapturedConfig;
     return { handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() };
@@ -68,6 +72,11 @@ describe("credentials authorize", () => {
     expect(await authorize({ email: u.email, password: "Wrong123" })).toBeNull();
   });
 
+  it("null for an Apple/Google-only account (no password set)", async () => {
+    const u = await prisma.user.create({ data: { email: "apple-only@example.com", passwordHash: null } });
+    expect(await authorize({ email: u.email, password: "anything" })).toBeNull();
+  });
+
   it("null for an unknown user", async () => {
     expect(await authorize({ email: "ghost@example.com", password: "Secret123" })).toBeNull();
   });
@@ -104,5 +113,40 @@ describe("callbacks", () => {
     expect(s.user).toMatchObject({ id: "u1", role: "customer", email: "a@b.co" });
     const t = config.callbacks.session({ session: { user: {} }, token: { id: "u2", role: "weird" } });
     expect(t.user.role).toBe("tailor");
+  });
+});
+
+describe("signIn callback (Apple / Google web redirect)", () => {
+  const appleAccount = (sub: string) => ({ provider: "apple", type: "oidc", providerAccountId: sub, refresh_token: undefined });
+
+  it("lets credentials sign-ins straight through", async () => {
+    expect(await config.callbacks.signIn({ user: { id: "x" }, account: { provider: "credentials" } })).toBe(true);
+  });
+
+  it("creates the Tayylo user and swaps the provider id for ours", async () => {
+    const user: Record<string, unknown> = { id: "apple-sub-1", name: "Ada Lovelace", email: "ada@privaterelay.appleid.com" };
+    const ok = await config.callbacks.signIn({
+      user,
+      account: appleAccount("apple-sub-1"),
+      profile: { sub: "apple-sub-1", email: "ada@privaterelay.appleid.com", is_private_email: "true" },
+    });
+    expect(ok).toBe(true);
+    const row = await prisma.user.findUniqueOrThrow({ where: { email: "ada@privaterelay.appleid.com" }, include: { identities: true } });
+    expect(user).toMatchObject({ id: row.id, role: "tailor" });
+    expect(row).toMatchObject({ name: "Ada Lovelace", passwordHash: null });
+    expect(row.identities[0]).toMatchObject({ provider: "apple", providerUserId: "apple-sub-1", isPrivateEmail: true });
+    // jwt then stores OUR id.
+    expect(config.callbacks.jwt({ token: {}, user })).toMatchObject({ id: row.id });
+  });
+
+  it("redirects to /auth with a reason instead of merging into an email/password account", async () => {
+    const existing = await createUser("tailor");
+    const res = await config.callbacks.signIn({
+      user: { id: "apple-sub-2" },
+      account: appleAccount("apple-sub-2"),
+      profile: { sub: "apple-sub-2", email: existing.email },
+    });
+    expect(res).toBe("/auth?error=OAuthSignin&provider=apple&code=email_in_use");
+    expect(await prisma.authIdentity.count()).toBe(0);
   });
 });

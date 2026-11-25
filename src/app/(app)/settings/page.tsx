@@ -23,6 +23,7 @@ import { TemplatesDialog } from "@/components/settings/templates-dialog";
 import { ImportDialog } from "@/components/settings/import-dialog";
 import { ExportDialog } from "@/components/settings/export-dialog";
 import { BankAccountsDialog, BrandMark, LogoPicker, bankAccountsOf } from "@/components/settings/branding";
+import { SignInMethodsSection } from "@/components/settings/sign-in-methods";
 import { accountRepo, businessRepo, resetStore } from "@/lib/data/store";
 import { clearBusinessCache, setCachedBusiness, useBusiness } from "@/lib/use-business";
 import { CURRENCIES, currencySymbol, initials } from "@/lib/format";
@@ -235,6 +236,9 @@ export default function SettingsPage() {
                 subtitle={session.user.email}
               />
             )}
+          </List>
+          <SignInMethodsSection returnTo="/settings" className="rounded-none border-0 border-t border-divider/60 bg-transparent" />
+          <List className="rounded-none border-0 border-t border-divider/60 bg-transparent divide-divider/60">
             <ListItem
               onClick={handleSignOut}
               leading={

@@ -17,7 +17,7 @@ describe("POST /api/auth/register", () => {
     expect(user).not.toBeNull();
     expect(user!.role).toBe("tailor");
     expect(user!.passwordHash).not.toBe("secret123");
-    expect(await bcrypt.compare("secret123", user!.passwordHash)).toBe(true);
+    expect(await bcrypt.compare("secret123", user!.passwordHash!)).toBe(true);
   });
 
   it("creates a customer account when role is customer", async () => {
