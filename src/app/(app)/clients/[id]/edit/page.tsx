@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter, useParams } from "next/navigation";
-import { UserX } from "lucide-react";
+import { Trash2, UserX } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { Tag } from "@/components/ui/tag";
 import { PageBody, PageHeader, Overline } from "@/components/ui/page";
 import { EmptyState, ErrorState, LoadingRegion, Skeleton } from "@/components/ui/states";
 import { customerRepo } from "@/lib/data/store";
+import { IconTile, List, ListItem } from "@/components/ui/list";
+import { DeleteClientDialog } from "@/components/client/delete-client-dialog";
 import type { Customer } from "@/types";
 
 export default function EditClientPage() {
@@ -28,6 +30,7 @@ export default function EditClientPage() {
   const [tagDraft, setTagDraft] = React.useState("");
   const [nameError, setNameError] = React.useState<string>();
   const [saving, setSaving] = React.useState(false);
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   const load = React.useCallback(() => {
     customerRepo
@@ -190,7 +193,24 @@ export default function EditClientPage() {
             </Button>
           </div>
         </form>
+
+        <Overline className="mb-3 mt-12">Manage</Overline>
+        <List>
+          <ListItem
+            onClick={() => setDeleteOpen(true)}
+            leading={
+              <IconTile tone="danger">
+                <Trash2 />
+              </IconTile>
+            }
+            title="Delete client"
+            subtitle="Removes their profile, measurements, past orders and photos"
+            tone="danger"
+          />
+        </List>
       </PageBody>
+
+      <DeleteClientDialog clientId={clientId} clientName={client.fullName} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>
   );
 }

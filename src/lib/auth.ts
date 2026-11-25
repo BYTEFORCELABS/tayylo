@@ -1,9 +1,13 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import Apple from "next-auth/providers/apple";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { appleClientSecret, appleConfig, appleNativeEnabled, appleWebEnabled, isPrivateRelayEmail } from "@/lib/apple";
+import { AppleNativeError, appleNativeSignIn } from "@/lib/apple-native";
+import { cleanName, IdentityError, resolveIdentityUser, type ProviderProfile } from "@/lib/identity";
+import { consumeOAuthIntent } from "@/lib/oauth-intent";
 
 declare module "next-auth" {
   interface Session {
@@ -17,12 +21,73 @@ declare module "next-auth" {
   }
 }
 
+/** Credentials failure with a machine-readable `code` (lands in the redirect URL as ?code=). */
+class SignInFailed extends CredentialsSignin {
+  constructor(code: string) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/**
+ * Apple returns to /api/auth/callback/apple with a cross-site POST
+ * (response_mode=form_post). Auth.js's state / nonce / PKCE / callback-url
+ * cookies default to SameSite=Lax, which browsers withhold on that POST — the
+ * callback would fail its checks. On HTTPS, send them SameSite=None; Secure.
+ * (They're HttpOnly, short-lived and single-purpose; the session cookie
+ * itself stays Lax.) Plain-http development keeps the defaults — Apple
+ * doesn't allow http/localhost return URLs anyway.
+ */
+const crossSiteCookies =
+  process.env.NODE_ENV === "production"
+    ? (() => {
+        const options = { httpOnly: true, sameSite: "none" as const, path: "/", secure: true };
+        return {
+          state: { name: "__Secure-authjs.state", options: { ...options, maxAge: 60 * 15 } },
+          nonce: { name: "__Secure-authjs.nonce", options },
+          pkceCodeVerifier: { name: "__Secure-authjs.pkce.code_verifier", options: { ...options, maxAge: 60 * 15 } },
+          callbackUrl: { name: "__Secure-authjs.callback-url", options },
+        };
+      })()
+    : undefined;
+
+/** Normalises what Apple/Google return into one shape for resolveIdentityUser. */
+function providerProfile(
+  provider: "apple" | "google",
+  account: { providerAccountId: string; refresh_token?: string },
+  profile: Record<string, unknown> | undefined,
+  user: { name?: string | null },
+): ProviderProfile {
+  const email = typeof profile?.email === "string" ? profile.email : null;
+  const truthy = (v: unknown) => v === true || v === "true";
+  if (provider === "apple") {
+    return {
+      provider,
+      providerUserId: account.providerAccountId,
+      email,
+      isPrivateEmail: truthy(profile?.is_private_email) || isPrivateRelayEmail(email),
+      name: user.name ?? null,
+      refreshToken: account.refresh_token ?? null,
+      tokenClientId: account.refresh_token ? appleConfig()?.servicesId ?? null : null,
+    };
+  }
+  return {
+    provider,
+    providerUserId: account.providerAccountId,
+    email,
+    emailVerified: truthy(profile?.email_verified),
+    name: cleanName(typeof profile?.name === "string" ? profile.name : null),
+  };
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   trustHost: true,
   pages: {
     signIn: "/auth",
+    error: "/auth",
   },
+  ...(crossSiteCookies ? { cookies: crossSiteCookies } : {}),
   providers: [
     Credentials({
       credentials: {
@@ -35,7 +100,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!email || !password) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) return null;
+        // Apple/Google-only accounts have no password until they set one via reset.
+        if (!user?.passwordHash) return null;
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
@@ -43,17 +109,98 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { id: user.id, email: user.email, role: user.role };
       },
     }),
-    // Google / Apple are only offered once real OAuth credentials are set.
-    // There is no database adapter, so first-time OAuth users would not get a
-    // User row — finish that before turning these on in production.
+
+    // Native iOS Sign in with Apple (see src/lib/apple-native.ts). Verifies
+    // the identity token + server-issued nonce and mints the normal session.
+    ...(appleNativeEnabled()
+      ? [
+          Credentials({
+            id: "apple-native",
+            name: "Apple (iOS)",
+            credentials: {
+              identityToken: {},
+              authorizationCode: {},
+              givenName: {},
+              familyName: {},
+              role: {},
+            },
+            async authorize(credentials, request) {
+              try {
+                const user = await appleNativeSignIn(credentials, request.headers.get("cookie"));
+                return { id: user.id, email: user.email, role: user.role };
+              } catch (e) {
+                if (e instanceof AppleNativeError) throw new SignInFailed(e.code);
+                console.error("[apple] native sign-in failed:", (e as Error).message);
+                throw new SignInFailed("apple_failed");
+              }
+            },
+          }),
+        ]
+      : []),
+
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
       ? [Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
       : []),
-    ...(process.env.APPLE_CLIENT_ID && process.env.APPLE_CLIENT_SECRET
-      ? [Apple({ clientId: process.env.APPLE_CLIENT_ID, clientSecret: process.env.APPLE_CLIENT_SECRET })]
+
+    // Web Sign in with Apple. Apple has no static client secret: it's an
+    // ES256 JWT signed with the .p8 key. Auth.js re-reads provider options on
+    // every request, so this getter hands it a cached secret that renews
+    // itself before expiring (src/lib/apple.ts).
+    ...(appleWebEnabled()
+      ? [
+          Apple({
+            clientId: appleConfig()!.servicesId!,
+            get clientSecret() {
+              try {
+                return appleClientSecret(appleConfig()!.servicesId!);
+              } catch (e) {
+                // A bad key must not take email/password sign-in down with it.
+                console.error("[apple] could not create client secret:", (e as Error).message);
+                return "";
+              }
+            },
+            // Apple sends the name (as a separate `user` form field, which
+            // Auth.js parses into profile.user) only on the first consent, and
+            // it may be partial or absent.
+            profile(profile) {
+              const name = (profile as { user?: { name?: { firstName?: string; lastName?: string } } }).user?.name;
+              return {
+                id: profile.sub,
+                email: profile.email ?? null,
+                name: cleanName(name?.firstName, name?.lastName),
+                image: null,
+              };
+            },
+          }),
+        ]
       : []),
   ],
   callbacks: {
+    /**
+     * Apple/Google: map the provider identity to a Tayylo user (creating or
+     * linking per src/lib/identity.ts) and swap the provider's id for ours.
+     * Without a database adapter this object is the same one the jwt
+     * callback receives next.
+     */
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== "apple" && account?.provider !== "google") return true;
+      const intent = await consumeOAuthIntent();
+      try {
+        const resolved = await resolveIdentityUser(
+          providerProfile(account.provider, account, profile as Record<string, unknown> | undefined, user),
+          { role: intent?.role, linkToUserId: intent?.linkUserId },
+        );
+        Object.assign(user, { id: resolved.id, email: resolved.email, role: resolved.role });
+        return true;
+      } catch (e) {
+        const code = e instanceof IdentityError ? e.code : "oauth_failed";
+        if (!(e instanceof IdentityError)) console.error(`[auth] ${account.provider} sign-in failed:`, (e as Error).message);
+        const params = new URLSearchParams({ provider: account.provider, code });
+        return intent?.linkUserId
+          ? `${intent.returnTo === "/account" ? "/account" : "/settings"}?linkError=1&${params}`
+          : `/auth?error=OAuthSignin&${params}`;
+      }
+    },
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;

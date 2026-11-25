@@ -76,8 +76,8 @@ describe("POST /api/auth/reset-password", () => {
     expect(res.body).toEqual({ ok: true });
 
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    expect(await bcrypt.compare("NewPass456", after.passwordHash)).toBe(true);
-    expect(await bcrypt.compare("OldPass123", after.passwordHash)).toBe(false);
+    expect(await bcrypt.compare("NewPass456", after.passwordHash!)).toBe(true);
+    expect(await bcrypt.compare("OldPass123", after.passwordHash!)).toBe(false);
     const row = await prisma.passwordResetToken.findFirstOrThrow({ where: { userId: user.id } });
     expect(row.usedAt).not.toBeNull();
   });
@@ -90,7 +90,7 @@ describe("POST /api/auth/reset-password", () => {
     expect(again.status).toBe(400);
     expect(again.body.error).toMatch(/invalid or has expired/);
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    expect(await bcrypt.compare("First1234", after.passwordHash)).toBe(true);
+    expect(await bcrypt.compare("First1234", after.passwordHash!)).toBe(true);
   });
 
   it("rejects an expired token without changing the password", async () => {
@@ -100,7 +100,7 @@ describe("POST /api/auth/reset-password", () => {
     const res = await doReset(token, "NewPass456");
     expect(res.status).toBe(400);
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    expect(await bcrypt.compare("OldPass123", after.passwordHash)).toBe(true);
+    expect(await bcrypt.compare("OldPass123", after.passwordHash!)).toBe(true);
   });
 
   it("rejects an unknown token", async () => {

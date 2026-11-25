@@ -32,10 +32,35 @@ function GoogleIcon() {
 
 function AppleIcon() {
   return (
-    <svg width="16" height="18" viewBox="0 0 384 512" fill="currentColor" aria-hidden>
+    <svg width="16" height="19" viewBox="0 0 384 512" fill="currentColor" aria-hidden>
       <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5c0 26.2 4.8 53.3 14.4 81.2 12.8 37 59 127.6 107.2 126.1 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-83.5 102.6-120.6-65.2-30.7-61.7-90-61.7-91.4zM255.3 100.6c26.7-31.8 24.3-60.8 23.5-71.2-23.6 1.4-51 16.5-66.5 35-17.1 19.8-27.3 44.4-25.1 70.5 24.1 1.9 46-11.2 68.1-34.3z" />
     </svg>
   );
+}
+
+type Provider = "google" | "apple";
+const providerName = (p: string | null) => (p === "google" ? "Google" : "Apple");
+
+/**
+ * Friendly copy for the `?error=…&code=…&provider=…` Auth.js (and our signIn
+ * callback) sends back to /auth when a provider sign-in doesn't complete.
+ */
+function oauthErrorMessage(error: string | null, code: string | null, provider: string | null): string | null {
+  if (!error) return null;
+  const name = providerName(provider);
+  switch (code) {
+    case "email_in_use":
+      return `An account with this email already exists. Sign in with your email and password, then connect ${name} in Settings.`;
+    case "no_email":
+      return `${name} didn't share an email address. Try again and allow Tayylo to see your email (you can still hide it).`;
+    case "identity_taken":
+      return `This ${name} account is already connected to another Tayylo account.`;
+  }
+  if (error === "CredentialsSignin") return null; // shown inline by the email form
+  if (error === "AccessDenied") return "Sign-in was declined. Please try again.";
+  return provider
+    ? `${name} sign-in didn't finish. Try again, or use your email and password.`
+    : "Sign-in didn't finish. Please try again.";
 }
 
 const copy: Record<Mode, { title: string; subtitle: string }> = {
@@ -54,7 +79,10 @@ function AuthPageInner() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [role, setRole] = React.useState<"tailor" | "customer">("tailor");
   const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [oauthLoading, setOauthLoading] = React.useState<Provider | null>(null);
+  const [error, setError] = React.useState<string | null>(() =>
+    oauthErrorMessage(searchParams.get("error"), searchParams.get("code"), searchParams.get("provider"))
+  );
   const [touched, setTouched] = React.useState({ email: false, password: false });
   const [resetSent, setResetSent] = React.useState(false);
 
@@ -74,7 +102,7 @@ function AuthPageInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ email: true, password: true });
-    if (!emailValid || !passwordValid || loading) return;
+    if (!emailValid || !passwordValid || loading || oauthLoading) return;
     setError(null);
     setLoading(true);
 
@@ -139,18 +167,39 @@ function AuthPageInner() {
     }
   };
 
-  const handleOAuth = async (provider: "google" | "apple") => {
+  const handleOAuth = async (provider: Provider) => {
+    // One request at a time: repeated taps would start competing redirects.
+    if (oauthLoading || loading) return;
     setError(null);
-    // Google/Apple are only registered on the server once their credentials
-    // are configured; ask Auth.js which providers exist before redirecting.
-    const available = await fetch("/api/auth/providers")
-      .then(r => (r.ok ? (r.json() as Promise<Record<string, unknown>>) : {}))
-      .catch(() => ({}) as Record<string, unknown>);
-    if (!(provider in available)) {
-      setError(`${provider === "google" ? "Google" : "Apple"} sign-in isn't available yet. Use your email and password.`);
-      return;
+    setOauthLoading(provider);
+    const name = providerName(provider);
+    try {
+      // Google/Apple are only registered on the server once their credentials
+      // are configured; ask Auth.js which providers exist before redirecting.
+      const available = await fetch("/api/auth/providers")
+        .then(r => (r.ok ? (r.json() as Promise<Record<string, unknown>>) : {}))
+        .catch(() => null);
+      if (available === null) throw new Error("offline");
+      if (!(provider in available)) {
+        setError(`${name} sign-in isn't available yet. Use your email and password.`);
+        setOauthLoading(null);
+        return;
+      }
+      // Remember the role picked on "Create account" across the redirect. It
+      // only applies if this turns out to be a brand-new account.
+      const intent = await fetch("/api/auth/oauth-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mode === "signup" ? { role } : {}),
+      });
+      if (!intent.ok) throw new Error("intent");
+      clearQueries();
+      // Leaves the page; the spinner stays until the browser navigates.
+      await signIn(provider, { callbackUrl: "/today" });
+    } catch {
+      setError("Couldn't reach Tayylo. Check your connection and try again.");
+      setOauthLoading(null);
     }
-    await signIn(provider, { callbackUrl: "/today" });
   };
 
   const emailField = (
@@ -302,14 +351,31 @@ function AuthPageInner() {
                     or continue with
                     <span className="h-px flex-1 bg-border" />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button variant="secondary" size="lg" onClick={() => handleOAuth("google")}>
-                      <GoogleIcon />
-                      Google
-                    </Button>
-                    <Button variant="secondary" size="lg" onClick={() => handleOAuth("apple")}>
+                  <div className="grid gap-3">
+                    {/* Sign in with Apple: black with the white Apple logo and an
+                        approved title, at least as prominent as other options
+                        (Apple Human Interface Guidelines). */}
+                    <Button
+                      size="lg"
+                      block
+                      loading={oauthLoading === "apple"}
+                      disabled={!!oauthLoading || loading}
+                      onClick={() => handleOAuth("apple")}
+                      className="bg-black text-white shadow-none hover:bg-[#1d1d1f] focus-visible:outline-black disabled:opacity-60 [font-family:-apple-system,BlinkMacSystemFont,'Helvetica_Neue',Helvetica,Arial,sans-serif]"
+                    >
                       <AppleIcon />
-                      Apple
+                      Continue with Apple
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      block
+                      loading={oauthLoading === "google"}
+                      disabled={!!oauthLoading || loading}
+                      onClick={() => handleOAuth("google")}
+                    >
+                      <GoogleIcon />
+                      Continue with Google
                     </Button>
                   </div>
                 </>

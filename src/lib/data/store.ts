@@ -92,6 +92,20 @@ export const customerRepo = {
       `customer:${id}`
     );
   },
+  /**
+   * Deletes the client with their measurements, orders and photos. The server
+   * refuses (409, with the reason) while they have orders in progress or a balance owed.
+   */
+  async delete(id: string): Promise<boolean> {
+    const result = await mutating(
+      api<{ ok: boolean } | null>(`/api/customers/${id}`, { method: "DELETE" }),
+      "customers",
+      "orders",
+      `customer:${id}`,
+      `measurements:${id}`
+    );
+    return result?.ok ?? false;
+  },
   async checkDuplicatePhone(phone: string, excludeId?: string): Promise<boolean> {
     // Reuse the cached client list when it's there — no extra request per keystroke.
     const all = getQueryData<Customer[]>("customers") ?? (await fetchQuery("customers", customerRepo.list));
@@ -312,7 +326,24 @@ export interface Me {
   id: string;
   email: string;
   role: "tailor" | "customer";
+  /** Display name — e.g. from Sign in with Apple's first authorization. */
+  name?: string | null;
 }
+
+export interface SignInMethods {
+  hasPassword: boolean;
+  identities: { provider: "apple" | "google"; email: string | null; isPrivateEmail: boolean; linkedAt: string }[];
+  available: { appleWeb: boolean; appleNative: boolean; google: boolean };
+}
+
+export const signInMethodsRepo = {
+  async get(): Promise<SignInMethods | null> {
+    return api<SignInMethods | null>("/api/me/identities");
+  },
+  async disconnect(provider: "apple" | "google"): Promise<void> {
+    await api(`/api/me/identities/${provider}`, { method: "DELETE" });
+  },
+};
 
 export const meRepo = {
   async get(): Promise<Me | null> {

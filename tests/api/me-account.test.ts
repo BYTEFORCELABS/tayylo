@@ -30,7 +30,7 @@ describe("GET /api/me", () => {
     signInAs(u);
     const res = await call(me.GET);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ id: u.id, email: u.email, role: "customer" });
+    expect(res.body).toEqual({ id: u.id, email: u.email, role: "customer", name: null });
   });
 });
 

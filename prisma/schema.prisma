@@ -18,16 +18,50 @@ datasource db {
 
 model User {
   id           String   @id @default(uuid())
+  // Contact address. NOT an identity key for Apple/Google sign-in — those are
+  // matched on AuthIdentity (provider + the provider's stable `sub`). May be an
+  // Apple private relay address (…@privaterelay.appleid.com).
   email        String   @unique
-  passwordHash String
+  // Null for accounts created with Apple/Google that never set a password.
+  passwordHash String?
+  // Display name. Apple only sends it on the very first authorization.
+  name         String?
   // "tailor" (full workspace) | "customer" (browse Explore, view own documents)
   role         String   @default("tailor")
   createdAt    DateTime @default(now())
 
   business            Business?
   passwordResetTokens PasswordResetToken[]
+  identities          AuthIdentity[]
   stylePosts          StylePost[]
   savedPosts          SavedPost[]
+}
+
+// A third-party sign-in (Apple, Google) linked to a Tayylo user. The same
+// row serves the web and the mobile app, so one Apple ID reaches one account
+// everywhere.
+model AuthIdentity {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       String // "apple" | "google"
+  // The provider's stable user id (`sub`). The only thing identities match on.
+  providerUserId String
+  // Last email the provider reported (informational; can change or be a relay).
+  email          String?
+  isPrivateEmail Boolean  @default(false)
+  // Apple refresh token, AES-256-GCM encrypted (src/lib/token-crypto.ts).
+  // Kept only so the grant can be revoked when the account is deleted.
+  refreshToken   String?
+  // The Apple client id that issued refreshToken (Services ID on web, bundle
+  // id on iOS) — revocation must use the same one.
+  tokenClientId  String?
+  linkedAt       DateTime @default(now())
+  lastSignInAt   DateTime @default(now())
+
+  @@unique([provider, providerUserId])
+  @@unique([userId, provider])
+  @@index([userId])
 }
 
 model PasswordResetToken {
