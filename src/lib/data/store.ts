@@ -92,6 +92,20 @@ export const customerRepo = {
       `customer:${id}`
     );
   },
+  /**
+   * Deletes the client with their measurements, orders and photos. The server
+   * refuses (409, with the reason) while they have orders in progress or a balance owed.
+   */
+  async delete(id: string): Promise<boolean> {
+    const result = await mutating(
+      api<{ ok: boolean } | null>(`/api/customers/${id}`, { method: "DELETE" }),
+      "customers",
+      "orders",
+      `customer:${id}`,
+      `measurements:${id}`
+    );
+    return result?.ok ?? false;
+  },
   async checkDuplicatePhone(phone: string, excludeId?: string): Promise<boolean> {
     // Reuse the cached client list when it's there — no extra request per keystroke.
     const all = getQueryData<Customer[]>("customers") ?? (await fetchQuery("customers", customerRepo.list));
