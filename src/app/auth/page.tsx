@@ -86,6 +86,14 @@ function AuthPageInner() {
   const [touched, setTouched] = React.useState({ email: false, password: false });
   const [resetSent, setResetSent] = React.useState(false);
 
+  // A Google/Apple sign-in started by the mobile app (src/lib/mobile-oauth.ts)
+  // that Auth.js ended on this page: hand the outcome back to the app instead.
+  React.useEffect(() => {
+    if (searchParams.get("error") && /(?:^|;\s*)tayylo\.mobile-oauth-pending=1/.test(document.cookie)) {
+      window.location.replace(`/api/auth/mobile/finish?${searchParams.toString()}`);
+    }
+  }, [searchParams]);
+
   const emailValid = EMAIL_RE.test(email.trim());
   const passwordValid = password.length >= 6;
   const emailError = touched.email && !emailValid ? "Enter a valid email address" : undefined;
