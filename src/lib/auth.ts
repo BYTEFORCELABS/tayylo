@@ -8,6 +8,8 @@ import { appleClientSecret, appleConfig, appleNativeEnabled, appleWebEnabled, is
 import { AppleNativeError, appleNativeSignIn } from "@/lib/apple-native";
 import { cleanName, IdentityError, resolveIdentityUser, type ProviderProfile } from "@/lib/identity";
 import { consumeOAuthIntent } from "@/lib/oauth-intent";
+import { googleEnabled } from "@/lib/google";
+import { MobileCodeError, readMobilePending, redeemMobileCode } from "@/lib/mobile-oauth";
 
 declare module "next-auth" {
   interface Session {
@@ -138,7 +140,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : []),
 
-    ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    // Mobile app: redeems the one-time code from a Google/Apple sign-in run in
+    // the system browser sheet (see src/lib/mobile-oauth.ts) for a session.
+    Credentials({
+      id: "mobile-oauth",
+      name: "Mobile sign-in",
+      credentials: { code: {}, verifier: {} },
+      async authorize(credentials) {
+        try {
+          return await redeemMobileCode(credentials?.code, credentials?.verifier);
+        } catch (e) {
+          if (!(e instanceof MobileCodeError)) console.error("[auth] mobile sign-in failed:", (e as Error).message);
+          throw new SignInFailed("code_invalid");
+        }
+      },
+    }),
+
+    ...(googleEnabled()
       ? [Google({ clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET })]
       : []),
 
@@ -196,9 +214,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const code = e instanceof IdentityError ? e.code : "oauth_failed";
         if (!(e instanceof IdentityError)) console.error(`[auth] ${account.provider} sign-in failed:`, (e as Error).message);
         const params = new URLSearchParams({ provider: account.provider, code });
-        return intent?.linkUserId
-          ? `${intent.returnTo === "/account" ? "/account" : "/settings"}?linkError=1&${params}`
-          : `/auth?error=OAuthSignin&${params}`;
+        if (intent?.linkUserId) return `${intent.returnTo === "/account" ? "/account" : "/settings"}?linkError=1&${params}`;
+        // A sign-in started by the mobile app reports back to the app.
+        if (await readMobilePending()) return `/api/auth/mobile/finish?${params}`;
+        return `/auth?error=OAuthSignin&${params}`;
       }
     },
     jwt({ token, user }) {
