@@ -38,25 +38,28 @@ export function Section({ title, description, children, className, action }: {
 const fmt = (n: number) => n.toLocaleString("en-US");
 
 /** A headline number with an optional comparison to the previous period. */
-export function Stat({ label, value, sub, delta, href }: {
+export function Stat({ label, value, sub, delta, period = "vs before", href }: {
   label: string;
   value: number | string;
   sub?: React.ReactNode;
   /** [current, previous] for the same-length earlier period. */
   delta?: [number, number];
+  /** e.g. "vs last week". */
+  period?: string;
   href?: string;
 }) {
   let change: React.ReactNode = null;
   if (delta) {
     const [cur, prev] = delta;
     const diff = cur - prev;
-    const pct = prev ? Math.round((diff / prev) * 100) : null;
     const up = diff >= 0;
+    // Percentages are only honest once the base is big enough.
+    const pct = prev >= 10 ? Math.round((diff / prev) * 100) : null;
     change = (
       <span className={cn("inline-flex items-center gap-0.5 text-caption font-semibold", diff === 0 ? "text-text-tertiary" : up ? "text-success" : "text-danger")}>
         {diff !== 0 && (up ? <ArrowUpRight size={14} aria-hidden /> : <ArrowDownRight size={14} aria-hidden />)}
-        {diff === 0 ? "No change" : `${up ? "+" : ""}${fmt(diff)}${pct !== null ? ` (${up ? "+" : ""}${pct}%)` : ""}`}
-        <span className="sr-only"> versus the previous period</span>
+        {diff === 0 ? "Same as before" : pct !== null ? `${up ? "+" : ""}${pct}%` : `${up ? "+" : ""}${fmt(diff)}`}
+        <span className="font-medium text-text-tertiary">&nbsp;{period}</span>
       </span>
     );
   }
@@ -66,10 +69,12 @@ export function Stat({ label, value, sub, delta, href }: {
       <p className="mt-2 text-[28px] font-semibold leading-none tracking-tight text-ink tabular">
         {typeof value === "number" ? fmt(value) : value}
       </p>
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-text-tertiary">
-        {change}
-        {sub}
-      </div>
+      {(change || sub) && (
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-text-tertiary">
+          {change}
+          {sub}
+        </div>
+      )}
     </>
   );
   const cls = "block rounded-[var(--radius-card)] border border-border/70 bg-surface p-5";
@@ -100,7 +105,7 @@ export function RankedList({ items, unit, empty = "Nothing yet in this period." 
               {item.label}
             </span>
             <span className="shrink-0 text-label text-text-secondary tabular">
-              {fmt(item.count)} <span className="text-text-tertiary">{unit}</span>
+              {fmt(item.count)} <span className="text-text-tertiary">{item.count === 1 ? unit.replace(/s$/, "") : unit}</span>
             </span>
           </span>
         );

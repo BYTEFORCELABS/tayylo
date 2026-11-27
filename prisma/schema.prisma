@@ -39,6 +39,9 @@ model User {
   // Last authenticated API request (throttled), and which client made it.
   lastSeenAt      DateTime?
   lastSeenClient  String? // "web" | "app"
+  // Product updates and promotions from Tayylo (every email has an unsubscribe link).
+  marketingEmails   Boolean @default(true)
+  pushNotifications Boolean @default(true)
 
   business            Business?
   passwordResetTokens PasswordResetToken[]
@@ -50,6 +53,8 @@ model User {
   blockedBy           UserBlock[]  @relation("blocked")
   adminActions        AdminAuditLog[]
   adminLoginCodes     AdminLoginCode[]
+  subscription        Subscription?
+  pushTokens          PushToken[]
 
   @@index([createdAt])
   @@index([lastSeenAt])
@@ -417,4 +422,140 @@ model AdminLoginCode {
   createdAt DateTime  @default(now())
 
   @@index([userId, createdAt])
+}
+
+// ---- subscriptions ----
+
+// A plan tailors can be on. Edited from the admin portal. Exactly one plan
+// is the default (free) plan everyone without a paid subscription gets.
+model Plan {
+  key                   String   @id // "free", "pro", ...
+  name                  String
+  tagline               String   @default("")
+  // Selling points shown on the upgrade screen.
+  features              String[] @default([])
+  // Limits. maxClients null = unlimited.
+  maxClients            Int?
+  customBranding        Boolean  @default(false) // studio logo on invoices and receipts
+  explorePosting        Boolean  @default(true)
+  isDefault             Boolean  @default(false)
+  active                Boolean  @default(true)
+  sortOrder             Int      @default(0)
+  // RevenueCat entitlement id that grants this plan in the mobile app.
+  revenuecatEntitlement String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  prices        PlanPrice[]
+  subscriptions Subscription[]
+}
+
+model PlanPrice {
+  id               String  @id @default(uuid())
+  planKey          String
+  plan             Plan    @relation(fields: [planKey], references: [key], onDelete: Cascade)
+  interval         String // "monthly" | "yearly"
+  currency         String
+  amountMinor      Int
+  // Paystack plan for this price (created on first checkout).
+  paystackPlanCode String?
+  // A changed price retires the old row (active = false) rather than editing
+  // it, so renewals for people who subscribed at the old price still match.
+  active           Boolean @default(true)
+  createdAt        DateTime @default(now())
+
+  @@index([planKey, interval, currency])
+  @@index([paystackPlanCode])
+}
+
+// A user's current paid subscription (one per user). No row, or a lapsed
+// one, means the default plan. History lives in BillingEvent.
+model Subscription {
+  id                     String    @id @default(uuid())
+  userId                 String    @unique
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planKey                String
+  plan                   Plan      @relation(fields: [planKey], references: [key])
+  // "active" | "trialing" | "past_due" | "cancelled" (runs to period end) | "expired"
+  status                 String
+  // "paystack" | "apple" | "google" | "manual"
+  provider               String
+  interval               String?
+  currency               String?
+  amountMinor            Int?
+  providerSubscriptionId String?
+  providerCustomerId     String?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean   @default(false)
+  // Why a manual (complimentary) plan was given.
+  note                   String?
+  startedAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([planKey])
+  @@index([status])
+}
+
+// Every payment-provider webhook we act on (and payments), for history,
+// revenue and idempotency.
+model BillingEvent {
+  id          String   @id @default(uuid())
+  userId      String?
+  provider    String
+  type        String
+  externalId  String
+  amountMinor Int?
+  currency    String?
+  payload     Json
+  createdAt   DateTime @default(now())
+
+  @@unique([provider, externalId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ---- marketing ----
+
+// Expo push token for a signed-in device running the mobile app.
+model PushToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  platform   String // "ios" | "android"
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// A promotional message sent by email and/or push to a chosen audience.
+model Campaign {
+  id             String    @id @default(uuid())
+  title          String // internal name
+  subject        String
+  body           String // plain text; blank lines start new paragraphs
+  ctaLabel       String?
+  ctaUrl         String?
+  sendEmail      Boolean   @default(true)
+  sendPush       Boolean   @default(false)
+  pushTitle      String?
+  pushBody       String?
+  // { roles: string[], plans: string[], countries: string[], activeWithinDays: number | null }
+  audience       Json
+  status         String    @default("draft") // "draft" | "sending" | "sent"
+  // Sending happens in batches; cursor = last user id processed.
+  cursor         String?
+  lockedAt       DateTime?
+  recipients     Int       @default(0)
+  emailsSent     Int       @default(0)
+  pushSent       Int       @default(0)
+  failures       Int       @default(0)
+  createdById    String?
+  createdByEmail String
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([createdAt])
 }

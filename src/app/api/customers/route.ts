@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { assertPlanAllows } from "@/lib/billing/plans";
 import { requireUserAndBusiness, errorResponse } from "@/lib/auth-helpers";
 import { mediaMapForBusiness } from "@/lib/media";
 import { customerCreateSchema } from "@/lib/customer-schema";
@@ -49,8 +50,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { business } = await requireUserAndBusiness();
+    const { userId, business } = await requireUserAndBusiness();
     const body = await readBody(request, customerCreateSchema);
+    await assertPlanAllows(userId, "addClients", { businessId: business.id });
 
     const customer = await prisma.customer.create({
       data: {

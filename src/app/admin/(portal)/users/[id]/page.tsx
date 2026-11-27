@@ -6,6 +6,9 @@ import { prisma } from "@/lib/db";
 import { atLeast, effectiveStaffRole, isSuperAdmin, outranks, requireStaffPage } from "@/lib/admin/auth";
 import { PageHeader, Pill, Section, cap, dateTime, relative, shortDate } from "@/components/admin/ui";
 import { ActionButton, SelectAction } from "@/components/admin/action-button";
+import { GrantPlanForm } from "@/components/admin/grant-plan";
+import { effectivePlan } from "@/lib/billing/plans";
+import { formatMoney } from "@/lib/format";
 
 export const metadata: Metadata = { title: "User" };
 
@@ -26,7 +29,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   });
   if (!user) notFound();
 
-  const [posts, reportsAgainst, history, lastOrder] = await Promise.all([
+  const [posts, reportsAgainst, history, lastOrder, billing, paidPlans, payments] = await Promise.all([
     prisma.stylePost.findMany({
       where: { authorId: id },
       orderBy: { createdAt: "desc" },
@@ -36,7 +39,11 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
     prisma.postReport.count({ where: { post: { authorId: id } } }),
     prisma.adminAuditLog.findMany({ where: { targetType: "user", targetId: id }, orderBy: { createdAt: "desc" }, take: 20 }),
     user.business ? prisma.order.findFirst({ where: { businessId: user.business.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }) : null,
+    effectivePlan(id),
+    prisma.plan.findMany({ where: { isDefault: false }, orderBy: { sortOrder: "asc" }, select: { key: true, name: true } }),
+    prisma.billingEvent.findMany({ where: { userId: id, amountMinor: { not: null } }, orderBy: { createdAt: "desc" }, take: 10 }),
   ]);
+  const sub = billing.subscription;
 
   const self = staff.id === user.id;
   const superAdmin = isSuperAdmin(user.email);
@@ -200,6 +207,51 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                     Delete account
                   </ActionButton>
                 </div>
+              </div>
+            )}
+          </Section>
+
+          <Section title="Plan" description={user.role === "customer" ? "Customers don't need a plan" : undefined}>
+            <p className="text-[20px] font-semibold text-ink">{billing.plan.name}</p>
+            {billing.paid && sub ? (
+              <dl className="mt-3 space-y-2 text-label">
+                <Item
+                  k="How they get it"
+                  v={{ paystack: "Pays on the web (Paystack)", apple: "Pays in the App Store", google: "Pays in Google Play", manual: `Given free: ${sub.note ?? ""}` }[sub.provider] ?? sub.provider}
+                />
+                {sub.amountMinor && sub.currency ? <Item k="Price" v={`${formatMoney(sub.amountMinor, sub.currency)} / ${sub.interval === "yearly" ? "year" : "month"}`} /> : null}
+                <Item k={sub.cancelAtPeriodEnd ? "Ends" : "Renews"} v={sub.currentPeriodEnd ? shortDate(sub.currentPeriodEnd) : "No end date"} />
+                <Item k="Status" v={{ active: "Active", trialing: "Free trial", past_due: "Payment failed, retrying", cancelled: "Cancelled, active until the end date" }[sub.status] ?? sub.status} />
+              </dl>
+            ) : (
+              <p className="mt-1 text-label text-text-tertiary">{sub ? `Had ${sub.planKey} (${sub.status}).` : "Never subscribed."}</p>
+            )}
+            {payments.length > 0 && (
+              <div className="mt-4 border-t border-divider pt-3">
+                <p className="mb-1.5 text-caption font-semibold uppercase tracking-wide text-text-tertiary">Payments</p>
+                <ul className="space-y-1 text-label">
+                  {payments.map(p => (
+                    <li key={p.id} className="flex justify-between gap-2">
+                      <span className="text-text-secondary">{shortDate(p.createdAt)}</span>
+                      <span className="font-medium text-ink tabular">{p.currency ? formatMoney(p.amountMinor!, p.currency) : p.amountMinor}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {atLeast(staff.staffRole, "admin") && user.role === "tailor" && (
+              <div className="mt-4 border-t border-divider pt-4">
+                {sub?.provider === "manual" && billing.paid ? (
+                  <ActionButton url={`${api}/subscription`} method="DELETE" success="Free plan removed" variant="secondary"
+                    confirm={{ title: "Remove their free plan?", description: `They go back to ${"the free plan"} straight away.`, action: "Remove", destructive: true }}>
+                    Remove free plan
+                  </ActionButton>
+                ) : !billing.paid ? (
+                  <>
+                    <p className="mb-2 text-label font-semibold text-ink">Give a plan for free</p>
+                    <GrantPlanForm userId={user.id} plans={paidPlans} />
+                  </>
+                ) : null}
               </div>
             )}
           </Section>

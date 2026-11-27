@@ -50,6 +50,7 @@ export function SettingsForm({ initial, canEdit }: { initial: AppSettings; canEd
   const dirty = JSON.stringify(s) !== JSON.stringify(initial);
 
   const save = async () => {
+    if (s.billingEnabled && !initial.billingEnabled && !window.confirm("Turn on subscriptions? Free plan limits start applying to every tailor straight away.")) return;
     if (s.maintenanceMode && !initial.maintenanceMode && !window.confirm("Turn on maintenance mode? Everyone except Tayylo staff will be locked out of the web and mobile apps.")) return;
     setBusy(true);
     try {
@@ -89,6 +90,12 @@ export function SettingsForm({ initial, canEdit }: { initial: AppSettings; canEd
             onChange={v => set("signupsEnabled", v)}
             label="New sign-ups"
             description="When off, nobody can create an account (email, Apple or Google). Existing users can still sign in."
+          />
+          <Toggle
+            checked={s.billingEnabled}
+            onChange={v => set("billingEnabled", v)}
+            label="Subscriptions and plan limits"
+            description="When on, Free plan limits apply (clients, studio logo, Explore posting) and tailors can upgrade. Turn on once Paystack and plans are ready."
           />
           <Toggle
             checked={s.explorePostingEnabled}

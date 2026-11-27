@@ -24,6 +24,7 @@ import { ImportDialog } from "@/components/settings/import-dialog";
 import { ExportDialog } from "@/components/settings/export-dialog";
 import { BankAccountsDialog, BrandMark, LogoPicker, bankAccountsOf } from "@/components/settings/branding";
 import { SignInMethodsSection } from "@/components/settings/sign-in-methods";
+import { PlanCard, UpdatesPreferences } from "@/components/settings/plan-card";
 import { accountRepo, businessRepo, resetStore } from "@/lib/data/store";
 import { clearBusinessCache, setCachedBusiness, useBusiness } from "@/lib/use-business";
 import { CURRENCIES, currencySymbol, initials } from "@/lib/format";
@@ -111,6 +112,10 @@ export default function SettingsPage() {
             </p>
           </section>
         )}
+
+        <React.Suspense fallback={null}>
+          <PlanCard />
+        </React.Suspense>
 
         <div className="settings-card overflow-hidden rounded-[var(--radius-panel)] border border-border/70 bg-surface px-1 pb-2">
 
@@ -281,6 +286,8 @@ export default function SettingsPage() {
             />
           </List>
         </section>
+
+        <UpdatesPreferences />
 
         <div className="flex flex-col items-center gap-2 pb-4 pt-2">
           <button

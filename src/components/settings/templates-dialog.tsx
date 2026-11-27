@@ -19,7 +19,7 @@ export function TemplatesDialog({ open, onOpenChange }: { open: boolean; onOpenC
 
 function TemplatesBody() {
   const templatesQ = useTemplates();
-  const templates = templatesQ.data ?? null;
+  const templates = templatesQ.data ? templatesQ.data.filter(t => !t.archivedAt) : null;
   const failed = !templates && templatesQ.status === "error";
   const load = () => templatesQ.refetch();
   const [category, setCategory] = React.useState("All");

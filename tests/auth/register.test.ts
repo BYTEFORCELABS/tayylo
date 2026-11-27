@@ -1,9 +1,13 @@
 import bcrypt from "bcryptjs";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import * as email from "@/lib/email";
 import * as register from "@/app/api/auth/register/route";
 import { call, createUser, prisma, resetDb } from "../helpers";
 
-beforeEach(resetDb);
+beforeEach(async () => {
+  vi.mocked(email.sendWelcomeEmail).mockClear();
+  await resetDb();
+});
 
 const post = (body: unknown) => call(register.POST, { path: "/api/auth/register", body });
 
@@ -18,6 +22,7 @@ describe("POST /api/auth/register", () => {
     expect(user!.role).toBe("tailor");
     expect(user!.passwordHash).not.toBe("secret123");
     expect(await bcrypt.compare("secret123", user!.passwordHash!)).toBe(true);
+    expect(email.sendWelcomeEmail).toHaveBeenCalledWith("ada@example.com", { role: "tailor" });
   });
 
   it("creates a customer account when role is customer", async () => {

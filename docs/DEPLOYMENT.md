@@ -20,6 +20,8 @@ Set these in Vercel → Project → Settings → Environment Variables.
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no | Enables "Continue with Google" on the web. Accounts are linked the same way as Apple. |
 | `ADMIN_HOST` | for the admin portal | e.g. `admin.tayylo.com`. Add the domain to this same Vercel project. See [ADMIN.md](ADMIN.md). |
 | `MODERATION_EMAIL` | recommended | Where Explore report alerts go. |
+| `PAYSTACK_SECRET_KEY` / `REVENUECAT_WEBHOOK_AUTH` | for subscriptions | See [BILLING_AND_MARKETING.md](BILLING_AND_MARKETING.md). |
+| `MARKETING_EMAIL_FROM` / `COMPANY_ADDRESS` / `EXPO_ACCESS_TOKEN` | optional | Campaign sender, footer address, Expo push security. |
 | `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` / `APPLE_CLIENT_ID` (Services ID) / `APPLE_BUNDLE_ID` | for Sign in with Apple | Server-only. See [SIGN_IN_WITH_APPLE.md](SIGN_IN_WITH_APPLE.md). `APPLE_CLIENT_SECRET` is no longer used. |
 
 Give Preview deployments their own Neon branch for `DATABASE_URL` / `DIRECT_URL`.

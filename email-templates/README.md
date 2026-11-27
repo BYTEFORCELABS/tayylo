@@ -1,18 +1,25 @@
-# Auth emails (now sent directly via Resend — not Supabase)
+# Emails
 
-These HTML files are kept as the design reference for Tayylo's branded
-transactional emails. The app no longer goes through Supabase's
-dashboard-configured SMTP/templates — it sends emails itself via the Resend
-SDK, from `src/lib/email.ts`.
+Every email Tayylo sends is built from one design system in
+`src/lib/email-templates.ts`. Preview them all in the admin portal under
+**Emails** (desktop and phone widths, plus the plain-text version).
 
-- `reset-password.html` → its markup (with Supabase's `{{ .ConfirmationURL }}`
-  / `{{ .Email }}` / `{{ .SiteURL }}` tokens swapped for plain JS template
-  interpolation) is inlined in `sendPasswordResetEmail()` in
-  `src/lib/email.ts`.
-- `confirm-signup.html` → not currently used. Tayylo doesn't require email
-  verification before first sign-in (v1 decision); if that changes later,
-  this template is ready to adapt the same way.
+| Email | Sent when |
+| --- | --- |
+| Welcome (tailor / customer) | an account is created (email, Apple or Google) |
+| Password reset | someone uses "Forgot password" |
+| Admin sign-in code | staff sign in to admin.tayylo.com |
+| Plan upgraded / plan given free | a subscription starts, or staff give a plan |
+| Payment failed | a renewal payment fails (first time only) |
+| Campaign | staff send a campaign |
+| Moderation alert | an Explore post is reported (to `MODERATION_EMAIL`) |
 
-Required env vars (see `.env.local`): `RESEND_API_KEY`, `EMAIL_FROM`
-(defaults to `Tayylo <noreply@cyberziktechnologies.online>` — the verified
-Resend sending domain).
+Artwork (garment rail, seal icons, list ticks) is PNG, because Gmail and
+Outlook don't show SVG. Rebuild it from the garment icon set with:
+
+    node design/email/build-email-assets.mjs
+
+Images load from `EMAIL_ASSETS_URL`, else `AUTH_URL`, else
+`https://app.tayylo.com`, so new artwork only shows once it's deployed.
+
+The two `.html` files here are the old Supabase-era designs, kept for reference.

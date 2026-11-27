@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { requireStaffPage } from "@/lib/admin/auth";
 import { FilterTabs, PageHeader, Pill, cap, relative, shortDate } from "@/components/admin/ui";
+import { liveSubscriptionWhere } from "@/lib/billing/plans";
 
 export const metadata: Metadata = { title: "Users" };
 
@@ -16,12 +17,17 @@ const FILTERS = [
   { key: "suspended", label: "Suspended" },
   { key: "staff", label: "Staff" },
 ];
+const PLANS = [
+  { key: "any", label: "Any plan" },
+  { key: "paid", label: "Paid" },
+  { key: "free", label: "Free" },
+];
 const SORTS = [
   { key: "new", label: "Newest" },
   { key: "active", label: "Recently active" },
 ];
 
-type Params = { q?: string; filter?: string; sort?: string; page?: string };
+type Params = { q?: string; filter?: string; sort?: string; page?: string; plan?: string };
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<Params> }) {
   await requireStaffPage();
@@ -30,11 +36,16 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const filter = FILTERS.some(f => f.key === sp.filter) ? sp.filter! : "all";
   const sort = sp.sort === "active" ? "active" : "new";
   const page = Math.max(1, parseInt(sp.page ?? "1") || 1);
+  const plan = sp.plan === "paid" || sp.plan === "free" ? sp.plan : "any";
+  const live = liveSubscriptionWhere();
+  const paidWhere: Prisma.UserWhereInput = { subscription: { is: { ...live, plan: { isDefault: false } } } };
 
   const where: Prisma.UserWhereInput = {
     ...(filter === "tailor" || filter === "customer" ? { role: filter } : {}),
     ...(filter === "suspended" ? { suspendedAt: { not: null } } : {}),
     ...(filter === "staff" ? { staffRole: { not: null } } : {}),
+    ...(plan === "paid" ? paidWhere : {}),
+    ...(plan === "free" ? { role: "tailor", NOT: paidWhere } : {}),
     ...(q
       ? {
           OR: [
@@ -66,14 +77,15 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         lastSeenAt: true,
         lastSeenClient: true,
         business: { select: { name: true, country: true, _count: { select: { customers: true, orders: true } } } },
+        subscription: { select: { status: true, currentPeriodEnd: true, plan: { select: { name: true, isDefault: true } } } },
       },
     }),
   ]);
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const href = (patch: Partial<Params>) => {
     const p = new URLSearchParams();
-    const merged = { q, filter, sort, page: "1", ...patch };
-    Object.entries(merged).forEach(([k, v]) => v && !(k === "page" && v === "1") && !(k === "filter" && v === "all") && !(k === "sort" && v === "new") && p.set(k, v));
+    const merged = { q, filter, sort, plan, page: "1", ...patch };
+    Object.entries(merged).forEach(([k, v]) => v && !(k === "page" && v === "1") && !(k === "filter" && v === "all") && !(k === "sort" && v === "new") && !(k === "plan" && v === "any") && p.set(k, v));
     const s = p.toString();
     return `/users${s ? `?${s}` : ""}`;
   };
@@ -84,6 +96,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
 
       <form method="get" className="mb-4 flex gap-2" role="search">
         {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
+        {plan !== "any" && <input type="hidden" name="plan" value={plan} />}
         {sort !== "new" && <input type="hidden" name="sort" value={sort} />}
         <div className="relative flex-1">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary" aria-hidden />
@@ -100,7 +113,10 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <FilterTabs options={FILTERS} value={filter} hrefFor={k => href({ filter: k })} />
-        <FilterTabs options={SORTS} value={sort} hrefFor={k => href({ sort: k })} />
+        <div className="flex flex-wrap gap-2">
+          <FilterTabs options={PLANS} value={plan} hrefFor={k => href({ plan: k })} />
+          <FilterTabs options={SORTS} value={sort} hrefFor={k => href({ sort: k })} />
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-[var(--radius-card)] border border-border/70 bg-surface">
@@ -127,6 +143,9 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
                 <td className="px-3 py-3">
                   <span className="capitalize text-text-secondary">{u.role}</span>
                   {u.staffRole && <span className="ml-1.5"><Pill tone="olive">{cap(u.staffRole)}</Pill></span>}
+                  {u.subscription && !u.subscription.plan.isDefault && ["active", "trialing", "past_due", "cancelled"].includes(u.subscription.status) && (!u.subscription.currentPeriodEnd || u.subscription.currentPeriodEnd > new Date()) && (
+                    <span className="ml-1.5"><Pill tone="success">{u.subscription.plan.name}</Pill></span>
+                  )}
                 </td>
                 <td className="px-3 py-3 text-text-secondary">
                   {u.business ? (

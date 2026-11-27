@@ -55,7 +55,8 @@ function MeasurePageInner() {
   const templatesQ = useTemplates();
   const clients = clientsQ.data ?? [];
   const clientsLoading = !clientsQ.data;
-  const templates = React.useMemo(() => templatesQ.data ?? [], [templatesQ.data]);
+  // Templates retired from the admin portal aren't offered for new measurements.
+  const templates = React.useMemo(() => (templatesQ.data ?? []).filter(t => !t.archivedAt), [templatesQ.data]);
   const templatesLoading = !templatesQ.data;
   const [category, setCategory] = React.useState("All");
   const [template, setTemplate] = React.useState<MeasurementTemplate | null>(null);
