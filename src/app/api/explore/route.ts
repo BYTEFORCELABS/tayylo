@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, requireTailorId, errorResponse, ApiError } from "@/lib/auth-helpers";
 import { EXPLORE_CATEGORIES } from "@/lib/explore";
 import { shape } from "@/lib/explore-server";
+import { visibleTo } from "@/lib/explore-moderation";
 
 const PAGE = 24;
 
@@ -16,7 +17,9 @@ export async function GET(request: Request) {
     const q = url.searchParams.get("q")?.trim() || undefined;
     const cursor = url.searchParams.get("cursor") || undefined;
 
+    const visible = await visibleTo(userId);
     const where = {
+      ...visible,
       ...(country ? { country } : {}),
       ...(category ? { category } : {}),
       ...(q
@@ -48,7 +51,7 @@ export async function GET(request: Request) {
     if (!cursor) {
       const grouped = await prisma.stylePost.groupBy({
         by: ["country"],
-        where: { ...where, country: undefined },
+        where: { ...visible, ...(category ? { category } : {}), ...(where.OR ? { OR: where.OR } : {}) },
         _count: { _all: true },
         orderBy: { _count: { country: "desc" } },
       });

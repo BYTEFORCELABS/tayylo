@@ -64,3 +64,37 @@ export async function sendPasswordResetEmail(email: string, resetUrl: string, si
     html: resetPasswordHtml(resetUrl, email, siteUrl),
   });
 }
+
+/**
+ * Tell the team an Explore post was reported, so it can be reviewed within
+ * 24 hours. Best effort: a failed email must never fail the report itself.
+ */
+export async function sendModerationAlert(alert: {
+  postId: string;
+  imageUrl: string;
+  authorName: string;
+  authorEmail: string;
+  reason: string;
+  details: string | null;
+  reporterEmail: string;
+  reportCount: number;
+  hidden: boolean;
+}) {
+  const to = process.env.MODERATION_EMAIL;
+  if (!to || !process.env.RESEND_API_KEY) return;
+  const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to,
+      subject: `Explore report: ${alert.reason} (${alert.reportCount}${alert.hidden ? ", now hidden" : ""})`,
+      html: `<p><b>Post</b> ${esc(alert.postId)} by ${esc(alert.authorName)} &lt;${esc(alert.authorEmail)}&gt;</p>
+<p><b>Reason</b> ${esc(alert.reason)}${alert.details ? `<br>${esc(alert.details)}` : ""}</p>
+<p><b>Reported by</b> ${esc(alert.reporterEmail)}</p>
+<p><b>Reports so far</b> ${alert.reportCount}${alert.hidden ? " (hidden from everyone)" : ""}</p>
+<p><img src="${esc(alert.imageUrl)}" width="320" alt=""></p>`,
+    });
+  } catch (error) {
+    console.error("moderation alert failed", error);
+  }
+}
