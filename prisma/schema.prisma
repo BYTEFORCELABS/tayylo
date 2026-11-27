@@ -35,6 +35,9 @@ model User {
   identities          AuthIdentity[]
   stylePosts          StylePost[]
   savedPosts          SavedPost[]
+  postReports         PostReport[]
+  blocking            UserBlock[]  @relation("blocker")
+  blockedBy           UserBlock[]  @relation("blocked")
 }
 
 // A third-party sign-in (Apple, Google) linked to a Tayylo user. The same
@@ -306,8 +309,11 @@ model StylePost {
   width      Int?
   height     Int?
   createdAt  DateTime @default(now())
+  // Set when enough people report the post; hidden from everyone until reviewed.
+  hiddenAt   DateTime?
 
-  saves SavedPost[]
+  saves   SavedPost[]
+  reports PostReport[]
 
   @@index([createdAt])
   @@index([country])
@@ -324,4 +330,32 @@ model SavedPost {
 
   @@id([userId, postId])
   @@index([postId])
+}
+
+// Someone flagged an Explore post as objectionable. The post disappears for
+// the reporter straight away; enough reports hide it for everyone.
+model PostReport {
+  id         String    @id @default(uuid())
+  postId     String
+  post       StylePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason     String
+  details    String?
+  createdAt  DateTime  @default(now())
+
+  @@unique([reporterId, postId])
+  @@index([postId])
+}
+
+// The blocker no longer sees anything the blocked user posts on Explore.
+model UserBlock {
+  blockerId String
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
 }
