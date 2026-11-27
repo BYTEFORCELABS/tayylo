@@ -55,6 +55,10 @@ function oauthErrorMessage(error: string | null, code: string | null, provider: 
       return `${name} didn't share an email address. Try again and allow Tayylo to see your email (you can still hide it).`;
     case "identity_taken":
       return `This ${name} account is already connected to another Tayylo account.`;
+    case "signups_closed":
+      return "New sign-ups are paused right now. Please try again later.";
+    case "suspended":
+      return "This account has been suspended. Contact support@tayylo.com.";
   }
   if (error === "CredentialsSignin") return null; // shown inline by the email form
   if (error === "AccessDenied") return "Sign-in was declined. Please try again.";
@@ -131,7 +135,11 @@ function AuthPageInner() {
 
       const result = await signIn("credentials", { email, password, redirect: false });
       if (result?.error) {
-        setError("That email and password don't match an account.");
+        setError(
+          result.code === "suspended"
+            ? "This account has been suspended. Contact support@tayylo.com."
+            : "That email and password don't match an account."
+        );
         setLoading(false);
         return;
       }

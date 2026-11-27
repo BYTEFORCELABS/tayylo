@@ -4,6 +4,7 @@ import { requireUser, requireTailorId, errorResponse, ApiError } from "@/lib/aut
 import { EXPLORE_CATEGORIES } from "@/lib/explore";
 import { shape } from "@/lib/explore-server";
 import { visibleTo } from "@/lib/explore-moderation";
+import { getAppSettings } from "@/lib/app-settings";
 
 const PAGE = 24;
 
@@ -88,6 +89,7 @@ const createSchema = z.object({
 export async function POST(request: Request) {
   try {
     const userId = await requireTailorId();
+    if (!(await getAppSettings()).explorePostingEnabled) throw new ApiError(503, "Posting to Explore is paused right now");
     const parsed = createSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) throw new ApiError(400, "Add a photo, a country and a category");
     const d = parsed.data;

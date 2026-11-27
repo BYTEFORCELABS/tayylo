@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { getAppSettings } from "@/lib/app-settings";
 
 const bodySchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -14,6 +15,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Enter a valid email and a password of at least 6 characters" }, { status: 400 });
   }
   const { email, password, role } = parsed.data;
+
+  if (!(await getAppSettings()).signupsEnabled) {
+    return Response.json({ error: "New sign-ups are paused right now. Please try again later." }, { status: 403 });
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {

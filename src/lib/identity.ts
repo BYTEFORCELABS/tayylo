@@ -14,6 +14,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { getAppSettings } from "@/lib/app-settings";
 import { revokeAppleToken } from "@/lib/apple";
 import { openToken, sealToken } from "@/lib/token-crypto";
 
@@ -40,7 +41,11 @@ export type IdentityErrorCode =
   /** This Apple/Google account is already connected to a different Tayylo user. */
   | "identity_taken"
   /** The user already has a different Apple/Google account connected. */
-  | "provider_already_linked";
+  | "provider_already_linked"
+  /** New accounts are switched off in the admin portal. */
+  | "signups_closed"
+  /** The account was suspended by Tayylo staff. */
+  | "suspended";
 
 export class IdentityError extends Error {
   code: IdentityErrorCode;
@@ -126,6 +131,7 @@ export async function resolveIdentityUser(
     // Apple's emails (including relays) are verified by Apple; Google says so explicitly.
     if (!email || profile.emailVerified === false) throw new IdentityError("no_email");
     if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) throw new IdentityError("email_in_use");
+    if (!(await getAppSettings()).signupsEnabled) throw new IdentityError("signups_closed");
 
     const user = await prisma.user.create({
       data: {

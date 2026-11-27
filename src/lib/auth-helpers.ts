@@ -1,5 +1,8 @@
+import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getAppSettings } from "@/lib/app-settings";
+import { isSuperAdmin } from "@/lib/admin/super-admins";
 
 export class ApiError extends Error {
   status: number;
@@ -13,6 +16,40 @@ interface SessionUser {
   userId: string;
   role: "tailor" | "customer";
   businessId: string | null;
+}
+
+const SEEN_EVERY_MS = 10 * 60 * 1000;
+
+/**
+ * Browsers send a "Mozilla/…" user agent; the native app's networking stack
+ * (CFNetwork / okhttp) doesn't. The app can also say so explicitly with an
+ * `X-Tayylo-Client: app` header.
+ */
+async function requestClient(): Promise<"web" | "app" | null> {
+  try {
+    const h = await headers();
+    const explicit = h.get("x-tayylo-client");
+    if (explicit === "app" || explicit === "web") return explicit;
+    const ua = h.get("user-agent");
+    if (!ua) return null;
+    return /mozilla\//i.test(ua) ? "web" : "app";
+  } catch {
+    return null; // outside a request (tests, scripts)
+  }
+}
+
+/** Records activity for the admin portal's active-user counts, at most every 10 minutes. */
+async function touchLastSeen(userId: string, lastSeenAt: Date | null) {
+  if (lastSeenAt && Date.now() - lastSeenAt.getTime() < SEEN_EVERY_MS) return;
+  try {
+    const client = await requestClient();
+    await prisma.user.update({
+      where: { id: userId },
+      data: { lastSeenAt: new Date(), ...(client ? { lastSeenClient: client } : {}) },
+    });
+  } catch (e) {
+    console.error("[activity] could not record last seen:", (e as Error).message);
+  }
 }
 
 /**
@@ -29,9 +66,26 @@ async function sessionUser(): Promise<SessionUser> {
 
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, role: true, business: { select: { id: true } } },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      staffRole: true,
+      suspendedAt: true,
+      lastSeenAt: true,
+      business: { select: { id: true } },
+    },
   });
   if (!user) throw new ApiError(401, "Not signed in");
+  if (user.suspendedAt) throw new ApiError(403, "This account has been suspended. Contact support@tayylo.com.");
+
+  // Staff keep access during maintenance so they can check the fix.
+  if (!user.staffRole && !isSuperAdmin(user.email)) {
+    const settings = await getAppSettings();
+    if (settings.maintenanceMode) throw new ApiError(503, settings.maintenanceMessage);
+  }
+
+  await touchLastSeen(user.id, user.lastSeenAt);
 
   return {
     userId: user.id,

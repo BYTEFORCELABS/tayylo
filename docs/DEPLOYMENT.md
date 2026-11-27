@@ -18,6 +18,8 @@ Set these in Vercel → Project → Settings → Environment Variables.
 | `EMAIL_FROM` | yes | Sender, e.g. `Tayylo <noreply@yourdomain>`. The domain must be verified in Resend. |
 | `BLOB_READ_WRITE_TOKEN` | yes for Explore uploads | Created automatically when you connect a Vercel Blob store to the project. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | no | Enables "Continue with Google" on the web. Accounts are linked the same way as Apple. |
+| `ADMIN_HOST` | for the admin portal | e.g. `admin.tayylo.com`. Add the domain to this same Vercel project. See [ADMIN.md](ADMIN.md). |
+| `MODERATION_EMAIL` | recommended | Where Explore report alerts go. |
 | `APPLE_TEAM_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY` / `APPLE_CLIENT_ID` (Services ID) / `APPLE_BUNDLE_ID` | for Sign in with Apple | Server-only. See [SIGN_IN_WITH_APPLE.md](SIGN_IN_WITH_APPLE.md). `APPLE_CLIENT_SECRET` is no longer used. |
 
 Give Preview deployments their own Neon branch for `DATABASE_URL` / `DIRECT_URL`.
