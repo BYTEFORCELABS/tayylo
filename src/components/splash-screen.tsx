@@ -26,7 +26,9 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
     const id = setTimeout(() => {
       try {
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        if (reduce || sessionStorage.getItem(SEEN_KEY)) {
+        // The admin portal (admin.tayylo.com) is a work tool: no brand reveal.
+        const admin = window.location.hostname.startsWith("admin.");
+        if (reduce || admin || sessionStorage.getItem(SEEN_KEY)) {
           setPhase("done");
           return;
         }

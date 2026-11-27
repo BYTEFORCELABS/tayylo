@@ -30,6 +30,16 @@ model User {
   role         String   @default("tailor")
   createdAt    DateTime @default(now())
 
+  // Tayylo staff access to the admin portal (admin.tayylo.com), independent
+  // of role: "owner" | "admin" | "moderator". Null for everyone else.
+  staffRole       String?
+  // Set by an admin: the account can't sign in or use the API until cleared.
+  suspendedAt     DateTime?
+  suspendedReason String?
+  // Last authenticated API request (throttled), and which client made it.
+  lastSeenAt      DateTime?
+  lastSeenClient  String? // "web" | "app"
+
   business            Business?
   passwordResetTokens PasswordResetToken[]
   identities          AuthIdentity[]
@@ -38,6 +48,10 @@ model User {
   postReports         PostReport[]
   blocking            UserBlock[]  @relation("blocker")
   blockedBy           UserBlock[]  @relation("blocked")
+  adminActions        AdminAuditLog[]
+
+  @@index([createdAt])
+  @@index([lastSeenAt])
 }
 
 // A third-party sign-in (Apple, Google) linked to a Tayylo user. The same
@@ -358,4 +372,33 @@ model UserBlock {
 
   @@id([blockerId, blockedId])
   @@index([blockedId])
+}
+
+// ---- admin portal ----
+
+// Platform-wide switches the admin portal controls (maintenance mode,
+// sign-ups, Explore posting, announcement, minimum app version). One row
+// per key; values are validated by src/lib/app-settings.ts.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+// Every change made from the admin portal, who made it, and to what.
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorEmail String
+  action     String // e.g. "user.suspend", "post.delete", "settings.update"
+  targetType String? // "user" | "post" | "settings"
+  targetId   String?
+  summary    String
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
 }

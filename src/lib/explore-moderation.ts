@@ -10,8 +10,8 @@ export const HIDE_AFTER_REPORTS = 3;
 
 /**
  * Posts this viewer may see: nothing hidden by moderation (except their own),
- * nothing from people they've blocked or who've blocked them, and nothing
- * they've reported.
+ * nothing from people they've blocked or who've blocked them, nothing
+ * they've reported, and nothing by a suspended account.
  */
 export async function visibleTo(userId: string): Promise<Prisma.StylePostWhereInput> {
   const blocks = await prisma.userBlock.findMany({
@@ -24,6 +24,8 @@ export async function visibleTo(userId: string): Promise<Prisma.StylePostWhereIn
       { OR: [{ hiddenAt: null }, { authorId: userId }] },
       ...(hiddenAuthors.length ? [{ authorId: { notIn: hiddenAuthors } }] : []),
       { reports: { none: { reporterId: userId } } },
+      // Suspended accounts' posts disappear until the suspension is lifted.
+      { author: { suspendedAt: null } },
     ],
   };
 }

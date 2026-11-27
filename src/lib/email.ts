@@ -92,7 +92,11 @@ export async function sendModerationAlert(alert: {
 <p><b>Reason</b> ${esc(alert.reason)}${alert.details ? `<br>${esc(alert.details)}` : ""}</p>
 <p><b>Reported by</b> ${esc(alert.reporterEmail)}</p>
 <p><b>Reports so far</b> ${alert.reportCount}${alert.hidden ? " (hidden from everyone)" : ""}</p>
-<p><img src="${esc(alert.imageUrl)}" width="320" alt=""></p>`,
+<p><img src="${esc(alert.imageUrl)}" width="320" alt=""></p>${
+        process.env.ADMIN_HOST
+          ? `<p><a href="https://${esc(process.env.ADMIN_HOST)}/moderation">Review it in the admin portal</a></p>`
+          : ""
+      }`,
     });
   } catch (error) {
     console.error("moderation alert failed", error);

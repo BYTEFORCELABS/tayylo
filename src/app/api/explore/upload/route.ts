@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
 import { requireTailorId, errorResponse, ApiError } from "@/lib/auth-helpers";
+import { getAppSettings } from "@/lib/app-settings";
 
 // Vercel rejects Function request bodies over ~4.5 MB before the route runs,
 // so cap below that. Both clients resize to ≤1600px JPEG first (well under).
@@ -9,6 +10,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 export async function POST(request: Request) {
   try {
     const userId = await requireTailorId();
+    if (!(await getAppSettings()).explorePostingEnabled) throw new ApiError(503, "Posting to Explore is paused right now");
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       throw new ApiError(503, "Photo storage isn't set up yet (missing BLOB_READ_WRITE_TOKEN)");
     }

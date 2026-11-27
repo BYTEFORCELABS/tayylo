@@ -53,6 +53,13 @@ const crossSiteCookies =
       })()
     : undefined;
 
+/** Suspended accounts can't start a session, whichever way they sign in. */
+async function assertNotSuspended<T extends { id: string }>(user: T): Promise<T> {
+  const row = await prisma.user.findUnique({ where: { id: user.id }, select: { suspendedAt: true } });
+  if (row?.suspendedAt) throw new SignInFailed("suspended");
+  return user;
+}
+
 /** Normalises what Apple/Google return into one shape for resolveIdentityUser. */
 function providerProfile(
   provider: "apple" | "google",
@@ -107,6 +114,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
+        if (user.suspendedAt) throw new SignInFailed("suspended");
 
         return { id: user.id, email: user.email, role: user.role };
       },
@@ -129,8 +137,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             async authorize(credentials, request) {
               try {
                 const user = await appleNativeSignIn(credentials, request.headers.get("cookie"));
+                await assertNotSuspended(user);
                 return { id: user.id, email: user.email, role: user.role };
               } catch (e) {
+                if (e instanceof SignInFailed) throw e;
                 if (e instanceof AppleNativeError) throw new SignInFailed(e.code);
                 console.error("[apple] native sign-in failed:", (e as Error).message);
                 throw new SignInFailed("apple_failed");
@@ -148,8 +158,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: { code: {}, verifier: {} },
       async authorize(credentials) {
         try {
-          return await redeemMobileCode(credentials?.code, credentials?.verifier);
+          return await assertNotSuspended(await redeemMobileCode(credentials?.code, credentials?.verifier));
         } catch (e) {
+          if (e instanceof SignInFailed) throw e;
           if (!(e instanceof MobileCodeError)) console.error("[auth] mobile sign-in failed:", (e as Error).message);
           throw new SignInFailed("code_invalid");
         }
@@ -208,6 +219,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           providerProfile(account.provider, account, profile as Record<string, unknown> | undefined, user),
           { role: intent?.role, linkToUserId: intent?.linkUserId },
         );
+        const row = await prisma.user.findUnique({ where: { id: resolved.id }, select: { suspendedAt: true } });
+        if (row?.suspendedAt) throw new IdentityError("suspended");
         Object.assign(user, { id: resolved.id, email: resolved.email, role: resolved.role });
         return true;
       } catch (e) {

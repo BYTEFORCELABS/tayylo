@@ -13,6 +13,7 @@ import { ShellContext } from "@/components/shell/shell-context";
 import { useBusiness, useMe } from "@/lib/use-business";
 import { ApiRequestError } from "@/lib/data/store";
 import { prefetchWorkspace } from "@/lib/queries";
+import { AnnouncementBanner, MaintenanceScreen, useAppConfig } from "@/components/app-status";
 
 const QUICK_ACTIONS = [
   {
@@ -57,6 +58,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const customerHome = pathname.startsWith("/explore") || pathname.startsWith("/account");
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const { open: searchOpen, setOpen: setSearchOpen } = useCommandPalette();
+  const appConfig = useAppConfig();
   const signedOut =
     (error instanceof ApiRequestError && error.status === 401) ||
     (meError instanceof ApiRequestError && meError.status === 401);
@@ -89,6 +91,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     [setSearchOpen]
   );
 
+  // Set from the admin portal: the API is refusing requests anyway.
+  if (appConfig?.maintenance) return <MaintenanceScreen message={appConfig.maintenance.message} />;
+  const banner = appConfig?.announcement ? <AnnouncementBanner announcement={appConfig.announcement} /> : null;
+
   if (status === "error" && !signedOut && !customer) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-canvas">
@@ -107,6 +113,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
       <ShellContext.Provider value={shell}>
         <div className="min-h-[100dvh] bg-canvas">
+          {banner}
           <Sidebar active={activeNavKey(pathname)} items={CUSTOMER_NAV} />
           <main className="pb-nav lg:pl-64 lg:pb-12 print:p-0">
             <div key={pathname} className="animate-fade-in">
@@ -130,6 +137,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ShellContext.Provider value={shell}>
       <div className="min-h-[100dvh] bg-canvas">
+        {banner}
         <Sidebar
           active={active}
           onCreate={() => setSheetOpen(true)}
