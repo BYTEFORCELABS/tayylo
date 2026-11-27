@@ -507,7 +507,7 @@ export default function OrderDetailPage() {
         </Section>
 
         <p className="mt-10 text-center text-caption text-text-tertiary">
-          <Link href={`/clients/${order.customerId}`} className="inline-flex items-center gap-0.5 font-semibold text-olive">
+          <Link href={`/clients/${order.customerId}`} className="inline-flex items-center gap-0.5 font-semibold !text-olive">
             All orders for {order.customerName.split(" ")[0]} <ChevronRight size={14} />
           </Link>
         </p>

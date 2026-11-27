@@ -76,7 +76,9 @@ export default function TodayPage() {
     <PageHeader
       width="lg"
       eyebrow={formatWeekday(now)}
-      title={firstName ? `${greeting(now)}, ${firstName}` : greeting(now)}
+      // On phones the greeting shares the bar with three icon buttons; at the
+      // full 22px it truncated even short names ("Good afternoon, De…").
+      title={<span className="max-lg:text-[19px]">{firstName ? `${greeting(now)}, ${firstName}` : greeting(now)}</span>}
       actions={
         <>
           <Button variant="ghost" size="icon" onClick={openSearch} aria-label="Search" className="lg:hidden">
@@ -275,7 +277,7 @@ export default function TodayPage() {
                 {owing.length > 5 && (
                   <Link
                     href="/orders"
-                    className="mt-2 inline-flex items-center gap-0.5 px-1 text-label font-semibold text-olive"
+                    className="mt-2 inline-flex items-center gap-0.5 px-1 text-label font-semibold !text-olive"
                   >
                     {owing.length - 5} more with a balance <ChevronRight size={16} />
                   </Link>
@@ -335,7 +337,8 @@ function GettingStarted({ businessName }: { businessName?: string }) {
     },
   ];
   return (
-    <div className="mx-auto max-w-xl animate-rise-in">
+    // Left-aligned so it lines up with the greeting above (the header spans the wide `lg` width).
+    <div className="max-w-xl animate-rise-in">
       <Panel>
         <p className="text-label font-medium text-text-on-panel-muted">Welcome to Tayylo</p>
         <p className="mt-2 text-title text-text-inverse">{businessName ? `${businessName} is ready.` : "Your workspace is ready."}</p>

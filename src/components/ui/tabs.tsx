@@ -22,6 +22,19 @@ interface TabsProps<T extends string> {
 export function Tabs<T extends string>({ value, onChange, items, ariaLabel, className }: TabsProps<T>) {
   const id = React.useId();
   const refs = React.useRef<Record<string, HTMLButtonElement | null>>({});
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  // Keep the selected tab visible in the scrolling strip (keyboard, deep
+  // links). Only the strip scrolls; the page never jumps.
+  React.useEffect(() => {
+    const list = listRef.current;
+    const tab = refs.current[value];
+    if (!list || !tab) return;
+    const left = tab.offsetLeft - list.offsetLeft;
+    const right = left + tab.offsetWidth;
+    if (left < list.scrollLeft) list.scrollTo({ left: left - 16, behavior: "smooth" });
+    else if (right > list.scrollLeft + list.clientWidth) list.scrollTo({ left: right - list.clientWidth + 16, behavior: "smooth" });
+  }, [value]);
 
   const onKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
@@ -33,6 +46,7 @@ export function Tabs<T extends string>({ value, onChange, items, ariaLabel, clas
 
   return (
     <div
+      ref={listRef}
       role="tablist"
       aria-label={ariaLabel}
       className={cn("-mx-4 flex gap-1 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0 border-b border-border", className)}

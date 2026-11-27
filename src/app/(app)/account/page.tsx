@@ -18,7 +18,7 @@ export default function AccountPage() {
 
   return (
     <>
-      <PageHeader title="Account" />
+      <PageHeader title="Account" width="sm" />
       <PageBody width="sm">
         <div className="rounded-[var(--radius-card)] border border-border bg-surface p-5">
           <p className="text-overline uppercase text-text-tertiary">Signed in as</p>
