@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, CircleSlash, Database, ShieldAlert } from "lucide-react";
 import { requireStaffPage } from "@/lib/admin/auth";
-import { overview } from "@/lib/admin/stats";
+import { overview, subscriptionStats } from "@/lib/admin/stats";
 import { getAppSettings } from "@/lib/app-settings";
+import { formatMoney } from "@/lib/format";
 import { PageHeader, Section, Stat, Pill } from "@/components/admin/ui";
 import { DailyBars } from "@/components/admin/bar-chart";
 
@@ -13,7 +14,7 @@ const pct = (part: number, whole: number) => (whole ? `${Math.round((part / whol
 
 export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   await requireStaffPage();
-  const [o, settings, { denied }] = await Promise.all([overview(), getAppSettings(), searchParams]);
+  const [o, settings, subs, { denied }] = await Promise.all([overview(), getAppSettings(), subscriptionStats(), searchParams]);
   const switchesOff = [
     settings.maintenanceMode && "Maintenance mode is ON",
     !settings.signupsEnabled && "Sign-ups are paused",
@@ -52,6 +53,13 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         <Stat label="On the mobile app" value={o.active.app} sub={`${pct(o.active.app, o.active.month)} of 30-day actives`} />
         <Stat label="Orders, 30 days" value={o.workspace.orders30} delta={[o.workspace.orders30, o.workspace.ordersPrev30]} />
         <Stat label="Measurements, 30 days" value={o.workspace.measurements30} sub={`${o.workspace.payments30.toLocaleString()} payments recorded`} />
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Paying subscribers" value={subs.paying} sub={`${subs.complimentary} on a free plan from Tayylo`} href="/subscriptions" />
+        <Stat label={`Tailors on ${subs.freePlanName}`} value={subs.freeTailors} href="/users?plan=free" />
+        <Stat label="Monthly recurring revenue" value={subs.mrr.length ? subs.mrr.map(m => formatMoney(m.minor, m.currency, { compact: true })).join(" · ") : "—"} href="/subscriptions" />
+        <Stat label="Payment problems" value={subs.pastDue} sub={`${subs.cancelling} cancelling`} href="/subscriptions?view=past_due" />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

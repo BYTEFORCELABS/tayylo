@@ -3,9 +3,13 @@ import { Resend } from "resend";
 // Created on first send, not at import: this module is loaded by sign-in, and
 // Resend's constructor throws without a key, which would break all sign-in.
 let client: Resend | null = null;
+const getClient = () => (client ??= new Resend(process.env.RESEND_API_KEY));
 const resend = {
   emails: {
-    send: (...args: Parameters<Resend["emails"]["send"]>) => (client ??= new Resend(process.env.RESEND_API_KEY)).emails.send(...args),
+    send: (...args: Parameters<Resend["emails"]["send"]>) => getClient().emails.send(...args),
+  },
+  batch: {
+    send: (...args: Parameters<Resend["batch"]["send"]>) => getClient().batch.send(...args),
   },
 };
 
@@ -128,4 +132,46 @@ export async function sendAdminCodeEmail(email: string, code: string) {
 </div>`,
     text: `Your Tayylo Admin sign-in code: ${code}\n\nIt expires in 10 minutes and works once. If you didn't try to sign in, ignore this email.`,
   });
+}
+
+export interface MarketingEmail {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  unsubscribeUrl: string;
+}
+
+/**
+ * Promotional emails, sent in batches of up to 100 (Resend's batch limit).
+ * Each carries one-click unsubscribe headers. Returns how many were accepted.
+ */
+export async function sendMarketingEmails(messages: MarketingEmail[]): Promise<{ sent: number; failed: number }> {
+  if (!process.env.RESEND_API_KEY) {
+    console.log(`[marketing] email not configured; would send ${messages.length}: ${messages[0]?.subject ?? ""}`);
+    return { sent: 0, failed: messages.length };
+  }
+  let sent = 0;
+  let failed = 0;
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100);
+    try {
+      const { error } = await resend.batch.send(
+        chunk.map(m => ({
+          from: process.env.MARKETING_EMAIL_FROM ?? FROM,
+          to: m.to,
+          subject: m.subject,
+          html: m.html,
+          text: m.text,
+          headers: { "List-Unsubscribe": `<${m.unsubscribeUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+        })),
+      );
+      if (error) throw new Error(error.message);
+      sent += chunk.length;
+    } catch (e) {
+      console.error("[marketing] batch failed:", (e as Error).message);
+      failed += chunk.length;
+    }
+  }
+  return { sent, failed };
 }

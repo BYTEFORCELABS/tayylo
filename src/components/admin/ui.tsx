@@ -100,7 +100,7 @@ export function RankedList({ items, unit, empty = "Nothing yet in this period." 
               {item.label}
             </span>
             <span className="shrink-0 text-label text-text-secondary tabular">
-              {fmt(item.count)} <span className="text-text-tertiary">{unit}</span>
+              {fmt(item.count)} <span className="text-text-tertiary">{item.count === 1 ? unit.replace(/s$/, "") : unit}</span>
             </span>
           </span>
         );

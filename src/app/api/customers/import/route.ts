@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assertPlanAllows } from "@/lib/billing/plans";
 import { prisma } from "@/lib/db";
 import { requireUserAndBusiness, errorResponse, ApiError } from "@/lib/auth-helpers";
 import { parse, readJson } from "@/lib/validation";
@@ -22,7 +23,7 @@ const bodySchema = z.array(rowSchema, { error: "Send a list of clients" });
 
 export async function POST(request: Request) {
   try {
-    const { business } = await requireUserAndBusiness();
+    const { userId, business } = await requireUserAndBusiness();
     const raw = await readJson(request);
     if (Array.isArray(raw) && raw.length > MAX_ROWS) {
       throw new ApiError(413, `You can import up to ${MAX_ROWS.toLocaleString("en-US")} clients at a time`);
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
       }));
 
     if (rows.length === 0) return Response.json({ count: 0 });
+    await assertPlanAllows(userId, "addClients", { businessId: business.id, adding: rows.length });
 
     const result = await prisma.customer.createMany({ data: rows });
     return Response.json({ count: result.count });

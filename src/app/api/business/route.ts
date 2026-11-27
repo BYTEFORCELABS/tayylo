@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { requireTailorId, errorResponse, ApiError } from "@/lib/auth-helpers";
 import { readJson, parse } from "@/lib/validation";
+import { assertPlanAllows } from "@/lib/billing/plans";
 
 // Logos are stored inline as small data URLs (resized on the client).
 const MAX_LOGO_CHARS = 400_000;
@@ -80,6 +81,7 @@ export async function PATCH(request: Request) {
     else if (typeof body.logoUrl === "string") {
       if (!body.logoUrl.startsWith("data:image/")) throw new ApiError(400, "Logo must be an image");
       if (body.logoUrl.length > MAX_LOGO_CHARS) throw new ApiError(413, "That logo is too large");
+      await assertPlanAllows(userId, "customBranding");
       data.logoUrl = body.logoUrl;
     }
     if (Array.isArray(body.bankAccounts)) data.bankAccounts = cleanAccounts(body.bankAccounts);

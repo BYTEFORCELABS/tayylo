@@ -20,6 +20,8 @@ export const appSettingsSchema = z.object({
   signupsEnabled: z.boolean(),
   /** Tailors can publish new Explore posts. Browsing is unaffected. */
   explorePostingEnabled: z.boolean(),
+  /** Enforce plan limits (client cap, studio logo, Explore posting) and show upgrade options. */
+  billingEnabled: z.boolean(),
   /** Banner shown at the top of the web and mobile apps. Empty = none. */
   announcement: z.string().trim().max(280),
   announcementTone: z.enum(["info", "warning"]),
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   maintenanceMessage: "Tayylo is getting an upgrade. We'll be back shortly.",
   signupsEnabled: true,
   explorePostingEnabled: true,
+  billingEnabled: false,
   announcement: "",
   announcementTone: "info",
   minIosVersion: "",
@@ -86,6 +89,7 @@ export function publicConfig(s: AppSettings) {
     announcement: s.announcement ? { message: s.announcement, tone: s.announcementTone } : null,
     signupsEnabled: s.signupsEnabled,
     explorePostingEnabled: s.explorePostingEnabled,
+    billingEnabled: s.billingEnabled,
     minAppVersion: { ios: s.minIosVersion || null, android: s.minAndroidVersion || null },
   };
 }

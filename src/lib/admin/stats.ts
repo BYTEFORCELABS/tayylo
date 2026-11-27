@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { liveSubscriptionWhere } from "@/lib/billing/plans";
 
 const DAY = 864e5;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY);
@@ -202,5 +203,56 @@ export async function insights(range: Range) {
     categories: categories.map(c => ({ label: c.category, count: c._count._all })) satisfies Ranked[],
     postCountries: countries.map(c => ({ label: c.country, count: c._count._all })) satisfies Ranked[],
     studioCountries: studioCountries.map(c => ({ label: c.country || "Not set", count: c._count._all })) satisfies Ranked[],
+  };
+}
+
+/** Who pays, for what, and how much it's worth. */
+export async function subscriptionStats() {
+  const live = liveSubscriptionWhere();
+  const [plans, liveSubs, tailors, revenue30, churn30, newPaid30] = await Promise.all([
+    prisma.plan.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.subscription.findMany({
+      where: live,
+      select: { planKey: true, provider: true, status: true, interval: true, currency: true, amountMinor: true, cancelAtPeriodEnd: true, plan: { select: { isDefault: true } } },
+    }),
+    prisma.user.count({ where: { role: "tailor", suspendedAt: null } }),
+    prisma.billingEvent.groupBy({
+      by: ["currency"],
+      where: { createdAt: { gte: daysAgo(30) }, amountMinor: { not: null }, type: { in: ["charge.success", "INITIAL_PURCHASE", "RENEWAL"] } },
+      _sum: { amountMinor: true },
+    }),
+    prisma.subscription.count({ where: { status: "expired", updatedAt: { gte: daysAgo(30) } } }),
+    prisma.subscription.count({ where: { ...live, startedAt: { gte: daysAgo(30) }, provider: { not: "manual" } } }),
+  ]);
+
+  const paid = liveSubs.filter(s => !s.plan.isDefault);
+  const paying = paid.filter(s => s.provider !== "manual");
+  const mrr: Record<string, number> = {};
+  for (const s of paying) {
+    if (!s.currency || !s.amountMinor) continue;
+    mrr[s.currency] = (mrr[s.currency] ?? 0) + (s.interval === "yearly" ? s.amountMinor / 12 : s.amountMinor);
+  }
+  const count = (f: (s: (typeof paid)[number]) => boolean) => paid.filter(f).length;
+  const free = plans.find(p => p.isDefault);
+
+  return {
+    paidTotal: paid.length,
+    paying: paying.length,
+    complimentary: paid.length - paying.length,
+    freeTailors: Math.max(0, tailors - paid.length),
+    pastDue: count(s => s.status === "past_due"),
+    cancelling: count(s => s.cancelAtPeriodEnd),
+    newPaid30,
+    churn30,
+    mrr: Object.entries(mrr).map(([currency, minor]) => ({ currency, minor: Math.round(minor) })),
+    revenue30: revenue30.filter(r => r.currency).map(r => ({ currency: r.currency!, minor: r._sum.amountMinor ?? 0 })),
+    byPlan: plans
+      .filter(p => !p.isDefault)
+      .map(p => ({ label: p.name, count: paid.filter(s => s.planKey === p.key).length, href: `/subscriptions?plan=${p.key}` })),
+    byProvider: ["paystack", "apple", "google", "manual"].map(p => ({
+      label: { paystack: "Paystack (web)", apple: "App Store", google: "Google Play", manual: "Given free by Tayylo" }[p]!,
+      count: paid.filter(s => s.provider === p).length,
+    })),
+    freePlanName: free?.name ?? "Free",
   };
 }
