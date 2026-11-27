@@ -133,40 +133,44 @@ interface SearchFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputEleme
 
 export const SearchField = React.forwardRef<HTMLInputElement, SearchFieldProps>(
   ({ value, onValueChange, className, size = "md", placeholder = "Search", ...props }, ref) => (
-    <div className={cn("relative", className)}>
-      <Search
-        size={18}
-        strokeWidth={1.75}
-        aria-hidden
-        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary"
-      />
-      <input
-        ref={ref}
-        type="search"
-        value={value}
-        onChange={e => onValueChange(e.target.value)}
-        placeholder={placeholder}
-        aria-label={props["aria-label"] ?? placeholder}
-        className={cn(
-          "w-full rounded-full border border-transparent bg-surface-sunken pl-11 pr-11 text-[15px] text-ink",
-          "placeholder:text-text-tertiary",
-          "transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)]",
-          "focus:outline-none focus:bg-surface-raised focus:border-olive focus:ring-4 focus:ring-olive/12",
-          "[&::-webkit-search-cancel-button]:hidden",
-          size === "lg" ? "h-12" : "h-11"
+    // `className` (often padding) goes on the outer box; the icon and clear
+    // button centre on the inner one, so padding can't push them off the input.
+    <div className={className}>
+      <div className="relative">
+        <Search
+          size={18}
+          strokeWidth={1.75}
+          aria-hidden
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-tertiary"
+        />
+        <input
+          ref={ref}
+          type="search"
+          value={value}
+          onChange={e => onValueChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label={props["aria-label"] ?? placeholder}
+          className={cn(
+            "w-full rounded-full border border-transparent bg-surface-sunken pl-11 pr-11 text-[15px] text-ink",
+            "placeholder:text-text-tertiary",
+            "transition-[background-color,border-color,box-shadow] duration-[var(--duration-fast)]",
+            "focus:outline-none focus:bg-surface-raised focus:border-olive focus:ring-4 focus:ring-olive/12",
+            "[&::-webkit-search-cancel-button]:hidden",
+            size === "lg" ? "h-12" : "h-11"
+          )}
+          {...props}
+        />
+        {value && (
+          <button
+            type="button"
+            onClick={() => onValueChange("")}
+            aria-label="Clear search"
+            className="absolute right-2 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full text-text-tertiary hover:bg-surface-sunken hover:text-ink"
+          >
+            <X size={16} strokeWidth={2} />
+          </button>
         )}
-        {...props}
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => onValueChange("")}
-          aria-label="Clear search"
-          className="absolute right-2 top-1/2 -translate-y-1/2 flex size-8 items-center justify-center rounded-full text-text-tertiary hover:bg-surface-sunken hover:text-ink"
-        >
-          <X size={16} strokeWidth={2} />
-        </button>
-      )}
+      </div>
     </div>
   )
 );

@@ -252,7 +252,7 @@ function MeasurePageInner() {
           back={true}
           width="md"
         />
-        <PageBody width="md" className="pb-10">
+        <PageBody width="md" className="pt-4 pb-10">
           <ClientPicker
             clients={clients}
             loading={clientsLoading}
@@ -279,7 +279,7 @@ function MeasurePageInner() {
           backLabel={initialClientId ? "Back" : "Change client"}
           width="sm"
         />
-        <PageBody width="sm" className="pb-10">
+        <PageBody width="sm" className="pt-4 pb-10">
           {client && (
             <div className="mb-5 flex items-center gap-3 rounded-[var(--radius-card)] bg-surface px-4 py-3 border border-border/70">
               <Avatar name={client.fullName} src={client.photoUrl} size="sm" />
@@ -392,7 +392,7 @@ function MeasurePageInner() {
           />
         </PageBody>
 
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-canvas/90 backdrop-blur-xl lg:pl-64">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-canvas/[0.97] backdrop-blur-xl lg:pl-64">
           <div className="mx-auto flex max-w-xl gap-2.5 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">
             <Button
               variant="secondary"

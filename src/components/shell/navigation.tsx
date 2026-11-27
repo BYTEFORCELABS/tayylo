@@ -118,7 +118,7 @@ function TabButton({ item, active }: { item: NavItem; active: boolean }) {
       className={cn(
         "relative flex h-full flex-1 flex-col items-center justify-center gap-1 rounded-full",
         "transition-colors duration-[var(--duration-fast)]",
-        active ? "text-[#3F8A2A]" : "text-text-secondary hover:text-ink"
+        active ? "!text-[#3F8A2A]" : "!text-text-secondary hover:!text-ink"
       )}
     >
       {/* The selected tab turns green, on a soft green pill, so it's obvious where you are */}
@@ -199,7 +199,7 @@ export function Sidebar({ active, onCreate, onSearch, items = TAILOR_NAV, busine
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "relative flex h-11 items-center gap-3 rounded-full px-4 text-[15px] transition-colors duration-[var(--duration-fast)]",
-                isActive ? "font-semibold text-ink" : "font-medium text-text-secondary hover:bg-beige-light/70 hover:text-ink"
+                isActive ? "font-semibold !text-ink" : "font-medium !text-text-secondary hover:bg-beige-light/70 hover:!text-ink"
               )}
             >
               {isActive && (

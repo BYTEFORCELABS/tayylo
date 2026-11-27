@@ -119,7 +119,8 @@ export function DeleteClientDialog({
                 Close
               </Button>
               <Button asChild>
-                <Link href={`/clients/${clientId}`}>View client</Link>
+                {/* The global `a { color: inherit }` would turn this primary button's text dark. */}
+                <Link href={`/clients/${clientId}`} className="!text-text-inverse">View client</Link>
               </Button>
             </DialogFooter>
           </>

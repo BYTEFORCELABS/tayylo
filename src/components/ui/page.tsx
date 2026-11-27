@@ -264,7 +264,7 @@ export function Section({ title, description, action, trailing, className, child
             (action.href ? (
               <Link
                 href={action.href}
-                className="inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-1 -mr-2 text-label font-semibold text-olive hover:bg-olive-soft/60"
+                className="inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-1 -mr-2 text-label font-semibold !text-olive hover:bg-olive-soft/60"
               >
                 {action.label}
                 <ChevronRight size={16} strokeWidth={2} />

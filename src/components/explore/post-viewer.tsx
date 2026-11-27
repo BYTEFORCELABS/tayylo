@@ -29,7 +29,7 @@ export function PostViewer({ post, saved, onClose, onToggleSave, onDelete }: Pro
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[70] bg-black/90 animate-fade-in" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[70] bg-black/95 animate-fade-in" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           className="fixed inset-0 z-[71] flex flex-col pt-[max(12px,env(safe-area-inset-top))] pb-[max(16px,env(safe-area-inset-bottom))] focus-visible:outline-none"

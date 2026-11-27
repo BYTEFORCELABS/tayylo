@@ -158,7 +158,7 @@ function BankAccountsBody({ onDone }: { onDone: () => void }) {
       </DialogHeader>
 
       {accounts.length > 0 && (
-        <ul className="space-y-2.5">
+        <ul className="mb-3 space-y-2.5">
           {accounts.map(a => (
             <li
               key={a.id}
