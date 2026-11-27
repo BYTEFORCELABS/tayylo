@@ -2,13 +2,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { errorResponse, ApiError } from "@/lib/auth-helpers";
 import { revokeProviderTokens } from "@/lib/identity";
-import { atLeast, audit, outranks, requireStaff, type Staff } from "@/lib/admin/auth";
+import { atLeast, audit, isSuperAdmin, outranks, requireStaff, type Staff } from "@/lib/admin/auth";
 
 const patchSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("suspend"), reason: z.string().trim().min(3).max(500) }),
   z.object({ action: z.literal("unsuspend") }),
   z.object({ action: z.literal("setRole"), role: z.enum(["tailor", "customer"]) }),
-  z.object({ action: z.literal("setStaffRole"), staffRole: z.enum(["admin", "moderator"]).nullable() }),
+  z.object({ action: z.literal("setStaffRole"), staffRole: z.enum(["owner", "admin", "moderator"]).nullable() }),
 ]);
 
 /** Loads the target and refuses actions on yourself or on staff at or above your rank. */
@@ -16,7 +16,8 @@ async function target(staff: Staff, id: string) {
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) throw new ApiError(404, "User not found");
   if (user.id === staff.id) throw new ApiError(400, "You can't do this to your own account");
-  if (!outranks(staff.staffRole, user.staffRole)) throw new ApiError(403, "You can't change a staff member at or above your level");
+  if (isSuperAdmin(user.email)) throw new ApiError(403, "Super admins can't be changed from the portal");
+  if (!outranks(staff, user)) throw new ApiError(403, "You can't change a staff member at or above your level");
   return user;
 }
 
@@ -27,6 +28,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!parsed.success) throw new ApiError(400, "Invalid request");
     const body = parsed.data;
     if (body.action === "setStaffRole" && !atLeast(staff.staffRole, "owner")) throw new ApiError(403, "Only owners can change the team");
+    if (body.action === "setStaffRole" && body.staffRole === "owner" && !staff.isSuper) throw new ApiError(403, "Only super admins can make someone an owner");
     const { id } = await params;
     const user = await target(staff, id);
 

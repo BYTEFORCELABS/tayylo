@@ -15,13 +15,33 @@ anything changed here applies to the web app and the mobile app at once.
 3. **Env var:** set `ADMIN_HOST=admin.tayylo.com`. Any host starting with
    `admin.` already works without it; the variable is also used for the
    "Review it in the admin portal" link in moderation alert emails.
-4. **Make yourself owner.** Your account must exist and have a password.
-   Run this against the production database:
-   ```
-   npm run admin:grant -- you@example.com
-   ```
-   Then sign in at https://admin.tayylo.com with that email and password.
-   Add everyone else from the **Team** page.
+4. **Sign in** at https://admin.tayylo.com: enter your email, then type in
+   the 6-digit code it sends you. There are no admin passwords.
+
+## Super admins
+
+`isaacchukwuka67@gmail.com` and `cyberzikk1@gmail.com` are permanent super
+admins (`src/lib/admin/super-admins.ts`). They are always owners, whatever the
+database says, and they keep access during maintenance mode. Nobody can
+suspend them, delete them, or remove their access from the portal, not even
+each other. If a super admin email has no Tayylo account yet, one is created
+the first time a code is requested for it. Changing the list takes a code
+change and a deploy.
+
+Super admins add and remove everyone else from the **Team** page, including
+other owners. Owners can add and remove admins and moderators.
+
+## Signing in
+
+1. Enter your email. If it belongs to staff, a 6-digit code is emailed from
+   `EMAIL_FROM` through Resend. The page says the same thing either way, so it
+   can't be used to find out who is staff.
+2. Enter the code. It lasts 10 minutes, works once, and locks after 5 wrong
+   tries. Requesting a new code cancels the old one. You can request one every
+   30 seconds, up to 6 an hour.
+
+Without `RESEND_API_KEY` (local development), the code is printed in the
+server log instead of being emailed.
 
 Local development: run `npm run dev` and open http://admin.localhost:3000
 (Chrome and Firefox resolve `*.localhost` on their own).
@@ -34,10 +54,12 @@ Local development: run `npm run dev` and open http://admin.localhost:3000
 | Moderate Explore (hide, restore, dismiss, remove) | ✓ | ✓ | ✓ |
 | Suspend, change account type, password reset, delete account | | ✓ | ✓ |
 | App controls (maintenance, sign-ups, posting, banner, min version) | view | ✓ | ✓ |
-| Team (add or remove staff) | | | ✓ |
+| Team (add or remove admins and moderators) | | | ✓ |
+| Make or remove owners | | | super admins only |
 
 - Nobody can act on their own account, or on staff at or above their level.
-- Owners can only be created or removed with `npm run admin:grant`.
+- `npm run admin:grant -- <email> [owner|admin|moderator|none]` changes access
+  from the command line, if you ever need it.
 - The staff role is read from the database on every request. Removing
   someone's access, or suspending them, takes effect immediately.
 - The admin portal sets its own sign-in cookie, separate from the main app's.
@@ -82,8 +104,8 @@ to show it nicely:
 
 ## Not included yet
 
-- **Two-factor sign-in for staff.** Recommended before inviting more people;
-  for now, use a strong, unique password.
+- **Sign-in is only as safe as the staff member's email account.** Make sure
+  staff turn on two-step verification for their email.
 - **Request-level performance metrics** (latency, error rates, Web Vitals).
   The overview shows database latency and service configuration only. For the
   rest, turn on Vercel Observability / Speed Insights.

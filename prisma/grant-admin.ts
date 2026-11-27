@@ -1,6 +1,7 @@
-// Gives an existing Tayylo account access to the admin portal. This is how
-// the first owner is created (owners then add everyone else from the
-// portal's Team page). Run against the target database:
+// Gives an existing Tayylo account access to the admin portal from the
+// command line. Usually not needed: the super admins in
+// src/lib/admin/super-admins.ts are always owners, and owners add everyone
+// else from the portal's Team page. Run against the target database:
 //
 //   npm run admin:grant -- you@example.com            # owner
 //   npm run admin:grant -- someone@example.com admin  # or moderator
@@ -12,6 +13,7 @@ loadEnv({ path: ".env.local" });
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { isSuperAdmin } from "../src/lib/admin/super-admins";
 
 const ROLES = ["owner", "admin", "moderator", "none"];
 
@@ -20,6 +22,10 @@ async function main() {
   const email = emailArg?.trim().toLowerCase();
   if (!email || !ROLES.includes(roleArg)) {
     console.error("Usage: npm run admin:grant -- <email> [owner|admin|moderator|none]");
+    process.exit(1);
+  }
+  if (isSuperAdmin(email) && roleArg !== "owner") {
+    console.error(`${email} is a permanent super admin (src/lib/admin/super-admins.ts) and always has owner access.`);
     process.exit(1);
   }
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -41,9 +47,6 @@ async function main() {
       },
     });
     console.log(staffRole ? `${email} is now ${staffRole}.` : `${email} no longer has admin access.`);
-    if (staffRole && !user.passwordHash) {
-      console.log("Note: this account has no password (Apple/Google only). Use “Forgot password” in the app to set one before signing in to the portal.");
-    }
   } finally {
     await prisma.$disconnect();
   }

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getAppSettings } from "@/lib/app-settings";
+import { isSuperAdmin } from "@/lib/admin/super-admins";
 
 export class ApiError extends Error {
   status: number;
@@ -67,6 +68,7 @@ async function sessionUser(): Promise<SessionUser> {
     where: { id },
     select: {
       id: true,
+      email: true,
       role: true,
       staffRole: true,
       suspendedAt: true,
@@ -78,7 +80,7 @@ async function sessionUser(): Promise<SessionUser> {
   if (user.suspendedAt) throw new ApiError(403, "This account has been suspended. Contact support@tayylo.com.");
 
   // Staff keep access during maintenance so they can check the fix.
-  if (!user.staffRole) {
+  if (!user.staffRole && !isSuperAdmin(user.email)) {
     const settings = await getAppSettings();
     if (settings.maintenanceMode) throw new ApiError(503, settings.maintenanceMessage);
   }

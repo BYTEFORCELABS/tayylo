@@ -1,6 +1,13 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Created on first send, not at import: this module is loaded by sign-in, and
+// Resend's constructor throws without a key, which would break all sign-in.
+let client: Resend | null = null;
+const resend = {
+  emails: {
+    send: (...args: Parameters<Resend["emails"]["send"]>) => (client ??= new Resend(process.env.RESEND_API_KEY)).emails.send(...args),
+  },
+};
 
 const FROM = process.env.EMAIL_FROM ?? "Tayylo <noreply@cyberziktechnologies.online>";
 
@@ -101,4 +108,24 @@ export async function sendModerationAlert(alert: {
   } catch (error) {
     console.error("moderation alert failed", error);
   }
+}
+
+/** The admin portal's one-time sign-in code. */
+export async function sendAdminCodeEmail(email: string, code: string) {
+  if (!process.env.RESEND_API_KEY) {
+    // Local development without email: print it instead.
+    console.log(`[admin] sign-in code for ${email}: ${code}`);
+    return;
+  }
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `${code} is your Tayylo Admin sign-in code`,
+    html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:440px;margin:0 auto;padding:32px 24px;color:#1E2019">
+<p style="margin:0 0 8px;font-size:15px">Your Tayylo Admin sign-in code:</p>
+<p style="margin:0 0 20px;font-size:34px;font-weight:700;letter-spacing:8px;color:#454F2C">${code}</p>
+<p style="margin:0;font-size:13px;line-height:20px;color:#55574C">It expires in 10 minutes and works once. If you didn't try to sign in to admin.tayylo.com, you can ignore this email.</p>
+</div>`,
+    text: `Your Tayylo Admin sign-in code: ${code}\n\nIt expires in 10 minutes and works once. If you didn't try to sign in, ignore this email.`,
+  });
 }

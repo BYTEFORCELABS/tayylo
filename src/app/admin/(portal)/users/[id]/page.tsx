@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { atLeast, outranks, requireStaffPage } from "@/lib/admin/auth";
+import { atLeast, effectiveStaffRole, isSuperAdmin, outranks, requireStaffPage } from "@/lib/admin/auth";
 import { PageHeader, Pill, Section, cap, dateTime, relative, shortDate } from "@/components/admin/ui";
 import { ActionButton, SelectAction } from "@/components/admin/action-button";
 
@@ -39,8 +39,10 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   ]);
 
   const self = staff.id === user.id;
-  const canManage = !self && atLeast(staff.staffRole, "admin") && outranks(staff.staffRole, user.staffRole);
-  const canTeam = !self && staff.staffRole === "owner" && user.staffRole !== "owner";
+  const superAdmin = isSuperAdmin(user.email);
+  const userStaffRole = effectiveStaffRole(user);
+  const canManage = !self && atLeast(staff.staffRole, "admin") && outranks(staff, user);
+  const canTeam = !self && staff.staffRole === "owner" && outranks(staff, user);
   const api = `/api/admin/users/${user.id}`;
   const signInMethods = [user.passwordHash ? "Email & password" : null, ...user.identities.map(i => (i.provider === "apple" ? "Apple" : "Google"))].filter(Boolean);
 
@@ -56,7 +58,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           <div className="flex flex-wrap gap-2">
             {user.suspendedAt ? <Pill tone="danger">Suspended</Pill> : <Pill tone="success">Active</Pill>}
             <Pill>{cap(user.role)}</Pill>
-            {user.staffRole && <Pill tone="olive">Staff · {cap(user.staffRole)}</Pill>}
+            {superAdmin ? <Pill tone="olive">Super admin</Pill> : userStaffRole && <Pill tone="olive">Staff · {cap(userStaffRole)}</Pill>}
           </div>
         }
       />
@@ -147,7 +149,11 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
               <p className="text-label text-text-tertiary">This is your own account.</p>
             ) : !canManage ? (
               <p className="text-label text-text-tertiary">
-                {atLeast(staff.staffRole, "admin") ? "You can't change a staff member at or above your level." : "Moderators can view accounts. Ask an admin to change one."}
+                {superAdmin
+                  ? "Super admins are permanent. Their account and access can't be changed from the portal."
+                  : atLeast(staff.staffRole, "admin")
+                    ? "You can't change a staff member at or above your level."
+                    : "Moderators can view accounts. Ask an admin to change one."}
               </p>
             ) : (
               <div className="space-y-5">
@@ -199,14 +205,19 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           </Section>
 
           {canTeam && (
-            <Section title="Admin access" description="Owners only">
+            <Section title="Admin portal access" description="Who can sign in to admin.tayylo.com">
               <SelectAction
                 url={api}
                 action="setStaffRole"
                 field="staffRole"
                 label="Admin access"
                 value={user.staffRole ?? "none"}
-                options={[{ value: "none", label: "No access" }, { value: "moderator", label: "Moderator" }, { value: "admin", label: "Admin" }]}
+                options={[
+                  { value: "none", label: "No access" },
+                  { value: "moderator", label: "Moderator" },
+                  { value: "admin", label: "Admin" },
+                  ...(staff.isSuper ? [{ value: "owner", label: "Owner" }] : []),
+                ]}
               />
             </Section>
           )}

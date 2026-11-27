@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as userAdmin from "@/app/api/admin/users/[id]/route";
 import * as resetAdmin from "@/app/api/admin/users/[id]/password-reset/route";
 import * as postAdmin from "@/app/api/admin/posts/[id]/route";
@@ -12,11 +12,28 @@ import { clearAppSettingsCache } from "@/lib/app-settings";
 import { insights, overview } from "@/lib/admin/stats";
 import { call, createClient, createOrder, createTailor, createUser, prisma, resetDb, signInAs, signOut } from "../helpers";
 import { sentEmails } from "../session-state";
+import * as loginCode from "@/app/api/admin/login-code/route";
+import { verifyAdminCode } from "@/lib/admin/otp";
+
+const adminCodes: { to: string; code: string }[] = [];
+vi.mock("@/lib/email", async () => {
+  const { sentEmails } = await import("../session-state");
+  return {
+    sendPasswordResetEmail: vi.fn(async (to: string, resetUrl: string, siteUrl: string) => {
+      sentEmails.push({ to, resetUrl, siteUrl });
+    }),
+    sendAdminCodeEmail: vi.fn(async (to: string, code: string) => {
+      adminCodes.push({ to, code });
+    }),
+    sendModerationAlert: vi.fn(),
+  };
+});
 
 beforeEach(async () => {
   await resetDb();
   clearAppSettingsCache();
   sentEmails.length = 0;
+  adminCodes.length = 0;
 });
 
 async function staff(staffRole: "owner" | "admin" | "moderator") {
@@ -246,5 +263,108 @@ describe("activity and stats", () => {
     const i = await insights("30d");
     expect(i.studios[0]).toMatchObject({ label: "Top Studio", count: 2, href: `/users/${user.id}` });
     expect(i.garments[0]).toMatchObject({ label: "Shirt", count: 2 });
+  });
+});
+
+describe("super admins", () => {
+  const SUPER = "isaacchukwuka67@gmail.com";
+  const SUPER2 = "cyberzikk1@gmail.com";
+  const superUser = (email: string, staffRole: string | null = null) =>
+    prisma.user.create({ data: { email, role: "customer", staffRole } });
+
+  it("are owners even with no staff role stored, and can't be suspended, demoted or deleted by anyone", async () => {
+    const isaac = await superUser(SUPER);
+    const other = await superUser(SUPER2);
+    signInAs({ id: isaac.id, email: SUPER, role: "customer" });
+    expect((await call(settingsAdmin.GET)).status).toBe(200);
+
+    // Not even the other super admin.
+    expect((await patchUser(other.id, { action: "suspend", reason: "test" })).status).toBe(403);
+    expect((await patchUser(other.id, { action: "setStaffRole", staffRole: null })).status).toBe(403);
+    expect((await call(userAdmin.DELETE, { method: "DELETE", params: { id: other.id } })).status).toBe(403);
+
+    await staff("owner");
+    expect((await patchUser(isaac.id, { action: "setStaffRole", staffRole: null })).status).toBe(403);
+    expect((await call(teamAdmin.POST, { body: { email: SUPER, staffRole: "moderator" } })).status).toBe(409);
+  });
+
+  it("can make owners; ordinary owners can't", async () => {
+    const isaac = await superUser(SUPER);
+    const u = await createUser();
+    const v = await createUser();
+    await staff("owner");
+    expect((await call(teamAdmin.POST, { body: { email: u.email, staffRole: "owner" } })).status).toBe(403);
+
+    signInAs({ id: isaac.id, email: SUPER, role: "customer" });
+    expect((await call(teamAdmin.POST, { body: { email: u.email, staffRole: "owner" } })).status).toBe(201);
+    expect((await patchUser(u.id, { action: "setStaffRole", staffRole: null })).status).toBe(200);
+    await prisma.user.update({ where: { id: v.id }, data: { staffRole: "owner" } });
+    expect((await patchUser(v.id, { action: "setStaffRole", staffRole: "admin" })).status).toBe(200);
+  });
+
+  it("keep working during maintenance", async () => {
+    const isaac = await superUser(SUPER);
+    await prisma.appSetting.create({ data: { key: "maintenanceMode", value: true } });
+    signInAs({ id: isaac.id, email: SUPER, role: "customer" });
+    expect((await call(me.GET)).status).toBe(200);
+  });
+});
+
+describe("admin sign-in codes", () => {
+  const request = (email: string) => call(loginCode.POST, { body: { email } });
+
+  it("emails a code to staff that works exactly once", async () => {
+    const s = await staff("moderator");
+    expect((await request(s.email.toUpperCase())).status).toBe(200);
+    expect(adminCodes).toHaveLength(1);
+    const { code } = adminCodes[0];
+    expect(code).toMatch(/^\d{6}$/);
+    expect(JSON.stringify(await prisma.adminLoginCode.findMany())).not.toContain(code);
+
+    expect(await verifyAdminCode(s.email, code)).toMatchObject({ id: s.id });
+    expect(await verifyAdminCode(s.email, code)).toBeNull();
+  });
+
+  it("answers the same for non-staff and unknown emails, but sends nothing", async () => {
+    const u = await createUser();
+    expect((await request(u.email)).body).toEqual({ ok: true });
+    expect((await request("nobody@test.local")).body).toEqual({ ok: true });
+    expect(adminCodes).toHaveLength(0);
+    expect((await request("not an email")).status).toBe(400);
+  });
+
+  it("locks a code after 5 wrong guesses and only the newest code works", async () => {
+    const s = await staff("admin");
+    await request(s.email);
+    const first = adminCodes[0].code;
+    const wrong = first === "000000" ? "111111" : "000000";
+    for (let i = 0; i < 5; i++) expect(await verifyAdminCode(s.email, wrong)).toBeNull();
+    expect(await verifyAdminCode(s.email, first)).toBeNull();
+
+    await prisma.adminLoginCode.updateMany({ data: { createdAt: new Date(Date.now() - 60_000) } });
+    await request(s.email);
+    const second = adminCodes[1].code;
+    expect(await verifyAdminCode(s.email, second)).toMatchObject({ id: s.id });
+  });
+
+  it("throttles repeat requests and rejects expired codes", async () => {
+    const s = await staff("admin");
+    await request(s.email);
+    await request(s.email);
+    expect(adminCodes).toHaveLength(1);
+    await prisma.adminLoginCode.updateMany({ data: { expiresAt: new Date(Date.now() - 1000) } });
+    expect(await verifyAdminCode(s.email, adminCodes[0].code)).toBeNull();
+  });
+
+  it("suspended staff get nothing; a super admin without an account gets one", async () => {
+    const s = await staff("admin");
+    await prisma.user.update({ where: { id: s.id }, data: { suspendedAt: new Date() } });
+    await request(s.email);
+    expect(adminCodes).toHaveLength(0);
+
+    await request("CyberZikk1@gmail.com");
+    expect(adminCodes).toHaveLength(1);
+    expect(await prisma.user.findUnique({ where: { email: "cyberzikk1@gmail.com" } })).toMatchObject({ staffRole: "owner" });
+    expect(await verifyAdminCode("cyberzikk1@gmail.com", adminCodes[0].code)).not.toBeNull();
   });
 });

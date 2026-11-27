@@ -10,6 +10,7 @@ import { cleanName, IdentityError, resolveIdentityUser, type ProviderProfile } f
 import { consumeOAuthIntent } from "@/lib/oauth-intent";
 import { googleEnabled } from "@/lib/google";
 import { MobileCodeError, readMobilePending, redeemMobileCode } from "@/lib/mobile-oauth";
+import { verifyAdminCode } from "@/lib/admin/otp";
 
 declare module "next-auth" {
   interface Session {
@@ -164,6 +165,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!(e instanceof MobileCodeError)) console.error("[auth] mobile sign-in failed:", (e as Error).message);
           throw new SignInFailed("code_invalid");
         }
+      },
+    }),
+
+    // Admin portal: a one-time code emailed to staff (src/lib/admin/otp.ts).
+    Credentials({
+      id: "admin-code",
+      name: "Admin sign-in code",
+      credentials: { email: {}, code: {} },
+      async authorize(credentials) {
+        const user = await verifyAdminCode(credentials?.email, credentials?.code);
+        if (!user) throw new SignInFailed("code_invalid");
+        return user;
       },
     }),
 

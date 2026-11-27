@@ -32,7 +32,7 @@ export function AdminShell({
   openReports,
   children,
 }: {
-  staff: { email: string; name: string | null; staffRole: string };
+  staff: { email: string; name: string | null; staffRole: string; isSuper: boolean };
   openReports: number;
   children: React.ReactNode;
 }) {
@@ -90,7 +90,7 @@ export function AdminShell({
     <div className="border-t border-divider pt-4">
       <p className="truncate text-label font-semibold text-ink">{staff.name || staff.email}</p>
       <p className="truncate text-caption text-text-tertiary">
-        {staff.email} · <span className="capitalize">{staff.staffRole}</span>
+        {staff.email} · <span className="capitalize">{staff.isSuper ? "Super admin" : staff.staffRole}</span>
       </p>
       <button
         type="button"

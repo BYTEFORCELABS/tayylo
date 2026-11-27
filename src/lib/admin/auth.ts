@@ -3,6 +3,9 @@ import type { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ApiError } from "@/lib/auth-helpers";
+import { isSuperAdmin } from "@/lib/admin/super-admins";
+
+export { SUPER_ADMIN_EMAILS, isSuperAdmin } from "@/lib/admin/super-admins";
 
 /**
  * Tayylo staff roles for the admin portal. Ranked: an owner can do
@@ -19,17 +22,28 @@ export const asStaffRole = (v: string | null | undefined): StaffRole | null =>
 
 export const atLeast = (role: StaffRole, min: StaffRole) => RANK[role] >= RANK[min];
 
-/** True when `actor` outranks the target (or the target isn't staff). */
-export const outranks = (actor: StaffRole, target: string | null | undefined) => {
-  const t = asStaffRole(target);
-  return !t || RANK[actor] > RANK[t];
-};
+/** The effective staff role: super admins are always owners. */
+export const effectiveStaffRole = (user: { email: string; staffRole: string | null }): StaffRole | null =>
+  isSuperAdmin(user.email) ? "owner" : asStaffRole(user.staffRole);
+
+/**
+ * Whether `actor` may change `target`'s account or access. Super admins are
+ * untouchable; a super admin may change anyone else (owners included);
+ * everyone else must strictly outrank the target.
+ */
+export function outranks(actor: Staff, target: { email: string; staffRole: string | null }) {
+  if (isSuperAdmin(target.email)) return false;
+  if (actor.isSuper) return true;
+  const t = asStaffRole(target.staffRole);
+  return !t || RANK[actor.staffRole] > RANK[t];
+}
 
 export interface Staff {
   id: string;
   email: string;
   name: string | null;
   staffRole: StaffRole;
+  isSuper: boolean;
 }
 
 /** The signed-in staff member, re-read from the database (never trusted from the cookie). */
@@ -41,9 +55,12 @@ export async function currentStaff(): Promise<Staff | null> {
     where: { id },
     select: { id: true, email: true, name: true, staffRole: true, suspendedAt: true },
   });
-  const staffRole = asStaffRole(user?.staffRole);
-  if (!user || !staffRole || user.suspendedAt) return null;
-  return { id: user.id, email: user.email, name: user.name, staffRole };
+  if (!user) return null;
+  const staffRole = effectiveStaffRole(user);
+  const isSuper = isSuperAdmin(user.email);
+  // A super admin can never be locked out by a suspension.
+  if (!staffRole || (user.suspendedAt && !isSuper)) return null;
+  return { id: user.id, email: user.email, name: user.name, staffRole, isSuper };
 }
 
 /** For admin Route Handlers: 401 when signed out, 403 without the role. */

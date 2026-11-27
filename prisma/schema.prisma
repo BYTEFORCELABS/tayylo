@@ -49,6 +49,7 @@ model User {
   blocking            UserBlock[]  @relation("blocker")
   blockedBy           UserBlock[]  @relation("blocked")
   adminActions        AdminAuditLog[]
+  adminLoginCodes     AdminLoginCode[]
 
   @@index([createdAt])
   @@index([lastSeenAt])
@@ -401,4 +402,19 @@ model AdminAuditLog {
 
   @@index([createdAt])
   @@index([targetType, targetId])
+}
+
+// One-time sign-in codes for the admin portal, emailed to staff. Only a hash
+// of the code is stored; each code expires quickly and allows few attempts.
+model AdminLoginCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int       @default(0)
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }

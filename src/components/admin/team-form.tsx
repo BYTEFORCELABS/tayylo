@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { adminRequest } from "@/components/admin/request";
 
-export function AddStaffForm() {
+export function AddStaffForm({ allowOwner = false }: { allowOwner?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = React.useState("");
   const [role, setRole] = React.useState("moderator");
@@ -20,7 +20,7 @@ export function AddStaffForm() {
         setBusy(true);
         try {
           await adminRequest("/api/admin/team", "POST", { email, staffRole: role });
-          toast.success(`${email} can now sign in to the admin portal`);
+          toast.success(`${email} can now sign in to the admin portal with an emailed code`);
           setEmail("");
           router.refresh();
         } catch (err) {
@@ -47,6 +47,7 @@ export function AddStaffForm() {
       >
         <option value="moderator">Moderator</option>
         <option value="admin">Admin</option>
+        {allowOwner && <option value="owner">Owner</option>}
       </select>
       <Button type="submit" loading={busy}>Add to team</Button>
     </form>
