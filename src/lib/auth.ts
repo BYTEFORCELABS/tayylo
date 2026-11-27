@@ -11,6 +11,7 @@ import { consumeOAuthIntent } from "@/lib/oauth-intent";
 import { googleEnabled } from "@/lib/google";
 import { MobileCodeError, readMobilePending, redeemMobileCode } from "@/lib/mobile-oauth";
 import { verifyAdminCode } from "@/lib/admin/otp";
+import { sendWelcomeEmail } from "@/lib/email";
 
 declare module "next-auth" {
   interface Session {
@@ -232,8 +233,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           providerProfile(account.provider, account, profile as Record<string, unknown> | undefined, user),
           { role: intent?.role, linkToUserId: intent?.linkUserId },
         );
-        const row = await prisma.user.findUnique({ where: { id: resolved.id }, select: { suspendedAt: true } });
+        const row = await prisma.user.findUnique({ where: { id: resolved.id }, select: { suspendedAt: true, name: true } });
         if (row?.suspendedAt) throw new IdentityError("suspended");
+        if (resolved.isNewUser) await sendWelcomeEmail(resolved.email, { name: row?.name, role: resolved.role });
         Object.assign(user, { id: resolved.id, email: resolved.email, role: resolved.role });
         return true;
       } catch (e) {

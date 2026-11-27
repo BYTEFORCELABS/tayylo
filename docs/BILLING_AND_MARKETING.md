@@ -66,6 +66,18 @@ activity), send yourself a test, then send. Sending happens in batches while
 the page is open. If it's interrupted, open the campaign and press **Resume**;
 nobody receives it twice. `{name}` becomes each person's first name.
 
+**Ready-made messages:** New campaign opens a gallery of 11 starters:
+
+- new feature and new templates
+- scheduled maintenance and "we're back"
+- special offer and upgrade to Pro
+- app update and tips
+- new on Explore, "we've missed you" (people away 30+ days) and season's greetings
+
+Fill in anything in `[brackets]`; sending is blocked until every one is
+replaced. In the message, a blank line starts a paragraph, lines starting
+`- ` become a ticked list, and `**bold**` works.
+
 **Templates → New template** publishes a measurement template to every tailor.
 **Announce it** opens a campaign already written for that template.
 

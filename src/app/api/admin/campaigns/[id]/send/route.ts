@@ -4,6 +4,7 @@ import { errorResponse, ApiError } from "@/lib/auth-helpers";
 import { audit, requireStaff } from "@/lib/admin/auth";
 import { sendNextBatch, sendTest } from "@/lib/marketing/campaigns";
 import { appOrigin } from "@/lib/password-reset";
+import { unfilled } from "@/lib/marketing/presets";
 
 export const maxDuration = 300;
 
@@ -25,6 +26,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return Response.json({ test: await sendTest(campaign, { id: staff.id, email: staff.email, name: user?.name ?? null }, origin) });
     }
     if (campaign.status === "sent") return Response.json({ done: true, campaign });
+    const gaps = unfilled(campaign.subject, campaign.body, campaign.pushTitle, campaign.pushBody, campaign.ctaLabel);
+    if (gaps.length) throw new ApiError(400, `Fill in ${gaps.join(", ")} before sending`);
     if (campaign.status === "draft") {
       await audit(staff, { action: "campaign.send", targetType: "campaign", targetId: id, summary: `Started sending “${campaign.title}”` });
     }

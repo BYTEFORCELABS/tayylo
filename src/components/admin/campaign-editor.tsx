@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { adminRequest } from "@/components/admin/request";
 import { cn } from "@/lib/utils";
+import { unfilled } from "@/lib/marketing/presets";
 
 export interface CampaignDraft {
   id?: string;
@@ -20,7 +21,7 @@ export interface CampaignDraft {
   sendPush: boolean;
   pushTitle: string | null;
   pushBody: string | null;
-  audience: { roles: string[]; plans: string[]; countries: string[]; activeWithinDays: number | null };
+  audience: { roles: string[]; plans: string[]; countries: string[]; activeWithinDays: number | null; inactiveForDays?: number | null };
 }
 
 const input =
@@ -145,6 +146,7 @@ export function CampaignEditor({
     }
   };
 
+  const gaps = unfilled(c.subject, c.body, c.sendPush ? c.pushTitle : null, c.sendPush ? c.pushBody : null, c.ctaLabel);
   const reach = estimate ? (c.sendEmail ? estimate.email : 0) + (c.sendPush ? estimate.push : 0) : null;
 
   return (
@@ -190,7 +192,9 @@ export function CampaignEditor({
               onChange={e => set("body", e.target.value)}
               placeholder={"Hi {name},\n\nWe've added an Agbada template with 14 measurements…"}
             />
-            <span className="mt-1.5 block text-caption font-medium text-text-tertiary">Leave a blank line between paragraphs. {"{name}"} becomes each person&rsquo;s first name.</span>
+            <span className="mt-1.5 block text-caption font-medium text-text-tertiary">
+              Blank line = new paragraph · lines starting &ldquo;- &rdquo; = ticked list · **bold** · {"{name}"} = first name
+            </span>
           </label>
           <div className="grid gap-4 sm:grid-cols-[240px_1fr]">
             <label className="text-label font-semibold text-ink">
@@ -224,16 +228,22 @@ export function CampaignEditor({
             <Chips label="Studio country" value={c.audience.countries} onChange={countries => setAudience({ countries })} options={countries.map(x => ({ value: x, label: x }))} />
           )}
           <label className="flex flex-wrap items-center gap-2 text-label font-semibold text-ink">
-            Only people active in the last
+            Activity
             <select
               className={cn(input, "w-auto py-1.5")}
-              value={c.audience.activeWithinDays ?? ""}
-              onChange={e => setAudience({ activeWithinDays: e.target.value ? Number(e.target.value) : null })}
+              value={c.audience.inactiveForDays ? `-${c.audience.inactiveForDays}` : (c.audience.activeWithinDays ?? "")}
+              onChange={e => {
+                const v = Number(e.target.value);
+                setAudience(v > 0 ? { activeWithinDays: v, inactiveForDays: null } : v < 0 ? { activeWithinDays: null, inactiveForDays: -v } : { activeWithinDays: null, inactiveForDays: null });
+              }}
             >
-              <option value="">any time</option>
-              <option value="7">7 days</option>
-              <option value="30">30 days</option>
-              <option value="90">90 days</option>
+              <option value="">Anyone</option>
+              <option value="7">Active in the last 7 days</option>
+              <option value="30">Active in the last 30 days</option>
+              <option value="90">Active in the last 90 days</option>
+              <option value="-30">Away for 30+ days</option>
+              <option value="-60">Away for 60+ days</option>
+              <option value="-90">Away for 90+ days</option>
             </select>
           </label>
         </section>
@@ -252,6 +262,13 @@ export function CampaignEditor({
           )}
         </section>
 
+        {gaps.length > 0 && !progress && (
+          <section className="rounded-[var(--radius-card)] bg-warning-bg p-4 text-label text-warning">
+            <p className="font-semibold">Fill in before sending</p>
+            <p className="mt-1">{gaps.join(" · ")}</p>
+          </section>
+        )}
+
         {progress ? (
           <section className="rounded-[var(--radius-card)] border border-border/70 bg-surface p-5">
             <p className="text-label font-semibold text-ink">Sending… keep this tab open</p>
@@ -268,7 +285,7 @@ export function CampaignEditor({
             <Button variant="secondary" onClick={test} disabled={saving}>
               <FlaskConical aria-hidden /> Send a test to me
             </Button>
-            <Button onClick={() => setConfirm(true)} disabled={saving || !reach}>
+            <Button onClick={() => setConfirm(true)} disabled={saving || !reach || gaps.length > 0}>
               <Send aria-hidden /> Send to {reach ?? 0} people
             </Button>
           </div>

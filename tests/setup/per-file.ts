@@ -27,5 +27,11 @@ vi.mock("@/lib/email", async () => {
     sendPasswordResetEmail: vi.fn(async (to: string, resetUrl: string, siteUrl: string) => {
       sentEmails.push({ to, resetUrl, siteUrl });
     }),
+    sendWelcomeEmail: vi.fn(async () => {}),
+    sendPlanActivatedEmail: vi.fn(async () => {}),
+    sendPaymentFailedEmail: vi.fn(async () => {}),
+    sendAdminCodeEmail: vi.fn(async () => {}),
+    sendModerationAlert: vi.fn(async () => {}),
+    sendMarketingEmails: vi.fn(async (list: unknown[]) => ({ sent: list.length, failed: 0 })),
   };
 });

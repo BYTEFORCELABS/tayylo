@@ -13,10 +13,13 @@ import { clearAppSettingsCache } from "@/lib/app-settings";
 import { effectivePlan } from "@/lib/billing/plans";
 import { subscriptionStats } from "@/lib/admin/stats";
 import { call, createTailor, createUser, prisma, resetDb, signInAs } from "../helpers";
+import * as email from "@/lib/email";
 
 const SECRET = "sk_test_secret";
 
 beforeEach(async () => {
+  vi.mocked(email.sendPlanActivatedEmail).mockClear();
+  vi.mocked(email.sendPaymentFailedEmail).mockClear();
   await resetDb();
   clearAppSettingsCache();
   vi.stubEnv("PAYSTACK_SECRET_KEY", SECRET);
@@ -128,6 +131,8 @@ describe("Paystack", () => {
     expect((await signedPaystack(charge(user.id))).status).toBe(200);
     expect((await signedPaystack(charge(user.id))).status).toBe(200);
     expect(await prisma.billingEvent.count()).toBe(1);
+    expect(email.sendPlanActivatedEmail).toHaveBeenCalledTimes(1);
+    expect(email.sendPlanActivatedEmail).toHaveBeenCalledWith(user.email, expect.objectContaining({ planName: "Pro", gifted: false }));
     let p = await effectivePlan(user.id);
     expect(p).toMatchObject({ paid: true, plan: { key: "pro" }, subscription: { provider: "paystack", status: "active", amountMinor: 500000 } });
     expect(p.subscription!.currentPeriodEnd!.getTime()).toBeGreaterThan(Date.now() + 27 * 864e5);
@@ -135,6 +140,8 @@ describe("Paystack", () => {
     await signedPaystack({ event: "subscription.create", data: { id: 9, subscription_code: "SUB_1", customer: { customer_code: "CUS_1" }, plan: { plan_code: "PLN_monthly" } } });
     await signedPaystack({ event: "invoice.payment_failed", data: { id: 10, customer: { customer_code: "CUS_1" } } });
     expect((await effectivePlan(user.id)).subscription?.status).toBe("past_due");
+    expect(email.sendPaymentFailedEmail).toHaveBeenCalledTimes(1);
+    expect(email.sendPlanActivatedEmail).toHaveBeenCalledTimes(1); // subscription.create for the same plan isn't a second "welcome"
     expect((await effectivePlan(user.id)).paid).toBe(true); // grace while Paystack retries
 
     await signedPaystack({ event: "subscription.not_renew", data: { id: 11, subscription_code: "SUB_1", customer: { customer_code: "CUS_1" } } });

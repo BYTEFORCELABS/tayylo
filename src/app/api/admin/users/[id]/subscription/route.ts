@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { errorResponse, ApiError } from "@/lib/auth-helpers";
 import { audit, requireStaff } from "@/lib/admin/auth";
 import { isLive } from "@/lib/billing/plans";
+import { notifySubscriptionChange } from "@/lib/billing/events";
 
 const schema = z.object({
   planKey: z.string().min(1).max(40),
@@ -45,6 +46,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       note,
     };
     await prisma.subscription.upsert({ where: { userId: id }, create: { userId: id, ...data }, update: data });
+    await notifySubscriptionChange(id, existing);
     await audit(staff, {
       action: "user.plan_grant",
       targetType: "user",

@@ -5,6 +5,7 @@ import { sendMarketingEmails, type MarketingEmail } from "@/lib/email";
 import { sendPush, type PushMessage } from "@/lib/push";
 import { audienceSchema, parseAudience, recipientsWhere } from "@/lib/marketing/audience";
 import { unsubscribeUrl } from "@/lib/marketing/unsubscribe";
+import { campaignEmail } from "@/lib/email-templates";
 
 export const campaignSchema = z
   .object({
@@ -23,40 +24,21 @@ export const campaignSchema = z
     sendPush: z.boolean().default(false),
     pushTitle: z.string().trim().max(65).nullable().default(null),
     pushBody: z.string().trim().max(178).nullable().default(null),
-    audience: audienceSchema.default({ roles: [], plans: [], countries: [], activeWithinDays: null }),
+    audience: audienceSchema.default({ roles: [], plans: [], countries: [], activeWithinDays: null, inactiveForDays: null }),
   })
   .refine(c => c.sendEmail || c.sendPush, { message: "Choose email, push, or both" });
-
-const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 /** "Hi {name}" personalisation; falls back to "there". */
 const personalise = (text: string, name: string | null) => text.replace(/\{\s*name\s*\}/gi, name?.trim() || "there");
 
 type Content = Pick<Campaign, "subject" | "body" | "ctaLabel" | "ctaUrl">;
 
-export function renderEmail(c: Content, recipient: { name: string | null }, links: { origin: string; unsubscribe: string }) {
-  const body = personalise(c.body, recipient.name);
-  const paragraphs = body.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
-  const address = process.env.COMPANY_ADDRESS ? `<br>${esc(process.env.COMPANY_ADDRESS)}` : "";
-  const html = `<!doctype html><html><body style="margin:0;background:#F4F2EC;">
-<div style="max-width:560px;margin:0 auto;padding:32px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1E2019;">
-  <img src="${links.origin}/lockup_olive.png" width="130" alt="Tayylo" style="display:block;margin:0 0 28px;height:auto;">
-  <div style="background:#FBFAF7;border:1px solid #E3E0D6;border-radius:20px;padding:28px 24px;">
-    <h1 style="margin:0 0 16px;font-size:22px;line-height:28px;font-weight:600;">${esc(personalise(c.subject, recipient.name))}</h1>
-    ${paragraphs.map(p => `<p style="margin:0 0 14px;font-size:15px;line-height:23px;color:#33352C;">${esc(p).replace(/\n/g, "<br>")}</p>`).join("\n    ")}
-    ${
-      c.ctaLabel && c.ctaUrl
-        ? `<a href="${esc(c.ctaUrl)}" style="display:inline-block;margin-top:8px;padding:13px 24px;background:#454F2C;color:#FFFFFF;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px;">${esc(c.ctaLabel)}</a>`
-        : ""
-    }
-  </div>
-  <p style="margin:20px 4px 0;font-size:12px;line-height:18px;color:#6B6D62;">
-    You're getting this because you have a Tayylo account.
-    <a href="${links.unsubscribe}" style="color:#6B6D62;">Unsubscribe from updates</a>.${address}
-  </p>
-</div></body></html>`;
-  const text = [personalise(c.subject, recipient.name), "", ...paragraphs.flatMap(p => [p, ""]), c.ctaLabel && c.ctaUrl ? `${c.ctaLabel}: ${c.ctaUrl}\n` : "", `Unsubscribe: ${links.unsubscribe}`].join("\n");
-  return { html, text, subject: personalise(c.subject, recipient.name) };
+/** The branded campaign email for one recipient (design in src/lib/email-templates.ts). */
+export function renderEmail(c: Content, recipient: { name: string | null }, links: { origin?: string; unsubscribe: string }) {
+  return campaignEmail(
+    { subject: personalise(c.subject, recipient.name), body: personalise(c.body, recipient.name), ctaLabel: c.ctaLabel, ctaUrl: c.ctaUrl },
+    { unsubscribe: links.unsubscribe },
+  );
 }
 
 const pushContent = (c: Pick<Campaign, "pushTitle" | "pushBody" | "subject" | "body">, name: string | null) => ({

@@ -102,7 +102,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ id: s
               ["Account type", audience.roles.join(", ") || "Everyone"],
               ["Plan", audience.plans.join(", ") || "Every plan"],
               ["Country", audience.countries.join(", ") || "Everywhere"],
-              ["Active within", audience.activeWithinDays ? `${audience.activeWithinDays} days` : "Any time"],
+              ["Activity", audience.activeWithinDays ? `Active in the last ${audience.activeWithinDays} days` : audience.inactiveForDays ? `Away for ${audience.inactiveForDays}+ days` : "Anyone"],
               ["Channels", [c.sendEmail && "Email", c.sendPush && "Push"].filter(Boolean).join(" + ")],
             ].map(([k, v]) => (
               <div key={k as string}>

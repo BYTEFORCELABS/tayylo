@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getAppSettings } from "@/lib/app-settings";
+import { sendWelcomeEmail } from "@/lib/email";
 
 const bodySchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
 
   const passwordHash = await bcrypt.hash(password, 12);
   await prisma.user.create({ data: { email, passwordHash, role } });
+  await sendWelcomeEmail(email, { role });
 
   return Response.json({ ok: true });
 }

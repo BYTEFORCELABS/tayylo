@@ -26,6 +26,9 @@ vi.mock("@/lib/email", async () => {
       adminCodes.push({ to, code });
     }),
     sendModerationAlert: vi.fn(),
+    sendWelcomeEmail: vi.fn(async () => {}),
+    sendPlanActivatedEmail: vi.fn(async () => {}),
+    sendPaymentFailedEmail: vi.fn(async () => {}),
   };
 });
 

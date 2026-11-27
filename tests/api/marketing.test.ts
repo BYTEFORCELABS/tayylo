@@ -19,6 +19,9 @@ vi.mock("@/lib/email", () => ({
   sendPasswordResetEmail: vi.fn(),
   sendModerationAlert: vi.fn(),
   sendAdminCodeEmail: vi.fn(),
+  sendWelcomeEmail: vi.fn(async () => {}),
+  sendPlanActivatedEmail: vi.fn(async () => {}),
+  sendPaymentFailedEmail: vi.fn(async () => {}),
   sendMarketingEmails: vi.fn(async (list: typeof emails) => {
     emails.push(...list);
     return { sent: list.length, failed: 0 };
@@ -151,6 +154,26 @@ describe("campaigns", () => {
     expect(emails).toHaveLength(2);
     expect((await call(campaign.PATCH, { method: "PATCH", params: { id }, body: draft() })).status).toBe(409);
     expect((await prisma.adminAuditLog.findMany()).map(l => l.action)).toEqual(expect.arrayContaining(["campaign.create", "campaign.send"]));
+  });
+
+  it("win-back audiences pick people who've been away", async () => {
+    const { user: away } = await createTailor();
+    await prisma.user.update({ where: { id: away.id }, data: { lastSeenAt: new Date(Date.now() - 45 * 864e5) } });
+    const { user: recent } = await createTailor();
+    await prisma.user.update({ where: { id: recent.id }, data: { lastSeenAt: new Date() } });
+    await admin(); // never seen: counts as away too
+    const est = await call(estimate.POST, { body: { roles: ["tailor"], inactiveForDays: 30 } });
+    expect(est.body.total).toBe(2);
+  });
+
+  it("refuses to send while [placeholders] are left in", async () => {
+    await createTailor();
+    await admin();
+    const { body } = await call(campaigns.POST, { body: draft({ subject: "Maintenance on [day]" }) });
+    const res = await call(send.POST, { method: "POST", params: { id: body.id }, body: {} });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("[day]");
+    expect((await call(send.POST, { method: "POST", params: { id: body.id }, body: { test: true } })).status).toBe(200); // tests are fine
   });
 
   it("a second sender can't double-send while one holds the lock", async () => {

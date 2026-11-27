@@ -9,6 +9,8 @@ export const audienceSchema = z.object({
   plans: z.array(z.string().min(1).max(40)).max(20).default([]),
   countries: z.array(z.string().min(1).max(60)).max(50).default([]),
   activeWithinDays: z.number().int().positive().max(3650).nullable().default(null),
+  /** Not seen for at least this many days (or never). For win-back campaigns. */
+  inactiveForDays: z.number().int().positive().max(3650).nullable().default(null),
 });
 export type Audience = z.infer<typeof audienceSchema>;
 
@@ -20,6 +22,7 @@ export async function audienceWhere(a: Audience): Promise<Prisma.UserWhereInput>
   if (a.roles.length) and.push({ role: { in: a.roles } });
   if (a.countries.length) and.push({ business: { is: { country: { in: a.countries } } } });
   if (a.activeWithinDays) and.push({ lastSeenAt: { gte: new Date(Date.now() - a.activeWithinDays * 864e5) } });
+  if (a.inactiveForDays) and.push({ OR: [{ lastSeenAt: null }, { lastSeenAt: { lt: new Date(Date.now() - a.inactiveForDays * 864e5) } }] });
   if (a.plans.length) {
     const free = (await defaultPlan()).key;
     const live = liveSubscriptionWhere();

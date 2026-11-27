@@ -1,6 +1,33 @@
 import crypto from "crypto";
 import type { Prisma } from "@prisma/client";
+import type { Subscription } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { isLive } from "@/lib/billing/plans";
+import { sendPaymentFailedEmail, sendPlanActivatedEmail } from "@/lib/email";
+import { formatMoney } from "@/lib/format";
+
+/** Emails the subscriber when their plan starts, or a renewal first fails. */
+export async function notifySubscriptionChange(userId: string, before: Subscription | null) {
+  const after = await prisma.subscription.findUnique({ where: { userId }, include: { plan: true, user: { select: { email: true, name: true } } } });
+  if (!after) return;
+  const started = isLive(after) && !after.plan.isDefault && (!before || !isLive(before) || before.planKey !== after.planKey);
+  if (started) {
+    await sendPlanActivatedEmail(after.user.email, {
+      name: after.user.name,
+      planName: after.plan.name,
+      features: after.plan.features,
+      renews: after.currentPeriodEnd,
+      gifted: after.provider === "manual",
+      amount: after.amountMinor && after.currency ? `${formatMoney(after.amountMinor, after.currency)} / ${after.interval === "yearly" ? "year" : "month"}` : null,
+    });
+  } else if (after.status === "past_due" && before?.status !== "past_due") {
+    await sendPaymentFailedEmail(after.user.email, {
+      name: after.user.name,
+      planName: after.plan.name,
+      store: after.provider === "apple" || after.provider === "google" ? after.provider : null,
+    });
+  }
+}
 
 /**
  * Turns payment-provider webhooks into the user's Subscription row.
@@ -145,6 +172,7 @@ export async function applyPaystackEvent(event: { event: string; data: PaystackD
       }
       break;
   }
+  await notifySubscriptionChange(userId, existing);
   return { applied: true, userId };
 }
 
@@ -228,5 +256,6 @@ export async function applyRevenueCatEvent(e: RevenueCatEvent) {
       }
       break;
   }
+  await notifySubscriptionChange(userId, existing);
   return { applied: true, userId };
 }
