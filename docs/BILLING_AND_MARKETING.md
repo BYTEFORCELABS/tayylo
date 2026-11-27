@@ -91,11 +91,24 @@ replaced. In the message, a blank line starts a paragraph, lines starting
   2. after sign-in (and on each launch) `POST /api/me/push-tokens`
      `{ "token": "ExponentPushToken[…]", "platform": "ios" | "android" }`;
   3. on sign-out `DELETE /api/me/push-tokens` with the same body;
-  4. when a notification is opened, go to `data.url` if one is set.
+  4. when a notification is opened, go to `data.url` if one is set. Order
+     updates carry `data.type = "order-status"` with `orderNumber` and
+     `status` instead.
+  For iOS, upload an APNs key to Expo (`eas credentials`); for Android, add
+  the Firebase (FCM v1) service-account key in Expo. Push only works in a
+  development or store build, not in Expo Go.
   `EXPO_ACCESS_TOKEN` is only needed if you turn on "enhanced push security"
   in Expo.
 - **Preferences:** people turn off news by email or push in Settings (tailors)
   or Account (customers). The app can use `GET`/`PATCH /api/me/preferences`.
+- **Order updates** (`src/lib/order-notifications.ts`): when a tailor moves an
+  order to Cutting, Sewing, Fitting, Alterations, Ready, Delivered or
+  Cancelled, the client gets an email if the tailor saved their email, with
+  replies going to the tailor. If that email belongs to someone signed in to
+  the Tayylo app, they also get a push. Each stage is sent once per order, and
+  moving back a step isn't sent. Tailors can turn this off in Settings →
+  Order updates to clients. These are service messages, so the "news"
+  switches don't affect them.
 
 **Consent.** Existing and new accounts start subscribed to product updates.
 That's common for service updates to your own users, with an unsubscribe

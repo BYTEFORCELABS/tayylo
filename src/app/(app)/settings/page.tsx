@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Ruler, Layers, FileUp, FileDown, LogOut, Trash2, Palette, Coins, RotateCcw, Mail, ChevronRight, Landmark, PenLine } from "lucide-react";
+import { Ruler, Layers, FileUp, FileDown, LogOut, Trash2, Palette, Coins, RotateCcw, Mail, ChevronRight, Landmark, PenLine, BellRing } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
@@ -24,7 +24,7 @@ import { ImportDialog } from "@/components/settings/import-dialog";
 import { ExportDialog } from "@/components/settings/export-dialog";
 import { BankAccountsDialog, BrandMark, LogoPicker, bankAccountsOf } from "@/components/settings/branding";
 import { SignInMethodsSection } from "@/components/settings/sign-in-methods";
-import { PlanCard, UpdatesPreferences } from "@/components/settings/plan-card";
+import { PlanCard, Switch, UpdatesPreferences } from "@/components/settings/plan-card";
 import { accountRepo, businessRepo, resetStore } from "@/lib/data/store";
 import { clearBusinessCache, setCachedBusiness, useBusiness } from "@/lib/use-business";
 import { CURRENCIES, currencySymbol, initials } from "@/lib/format";
@@ -53,6 +53,16 @@ export default function SettingsPage() {
       toast.success(unitSystem === "metric" ? "Measurements now in centimetres" : "Measurements now in inches");
     } catch {
       toast.error("Couldn't change the unit");
+    }
+  };
+
+  const updateNotifyClients = async (notifyClients: boolean) => {
+    try {
+      const updated = await businessRepo.update({ notifyClients });
+      setCachedBusiness(updated);
+      toast.success(notifyClients ? "Clients will hear when their order moves on" : "Clients won't get order updates");
+    } catch {
+      toast.error("Couldn't save that. Try again.");
     }
   };
 
@@ -193,6 +203,22 @@ export default function SettingsPage() {
               title="Measurement templates"
               subtitle="Fields used for each garment"
               chevron
+            />
+            <ListItem
+              leading={
+                <IconTile>
+                  <BellRing />
+                </IconTile>
+              }
+              title="Order updates to clients"
+              subtitle="Email clients when their order moves to a new stage, like Sewing or Ready. Replies come to you."
+              trailing={
+                <Switch
+                  on={business?.notifyClients ?? true}
+                  onToggle={() => business && updateNotifyClients(!(business.notifyClients ?? true))}
+                  label="Order updates to clients"
+                />
+              }
             />
           </List>
         </section>

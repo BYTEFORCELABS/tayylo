@@ -200,16 +200,25 @@ function SwitchRow({ on, onToggle, title, subtitle }: { on: boolean; onToggle: (
         <p className="text-[15px] font-semibold text-ink">{title}</p>
         <p className="text-label text-text-tertiary">{subtitle}</p>
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        aria-label={title}
-        onClick={onToggle}
-        className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", on ? "bg-olive" : "bg-border-strong")}
-      >
-        <span className={cn("absolute left-0 top-0.5 size-6 rounded-full bg-white shadow transition-transform", on ? "translate-x-[22px]" : "translate-x-0.5")} />
-      </button>
+      <Switch on={on} onToggle={onToggle} label={title} />
     </div>
+  );
+}
+
+export function Switch({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={e => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className={cn("relative h-7 w-12 shrink-0 rounded-full transition-colors", on ? "bg-olive" : "bg-border-strong")}
+    >
+      <span className={cn("absolute left-0 top-0.5 size-6 rounded-full bg-white shadow transition-transform", on ? "translate-x-[22px]" : "translate-x-0.5")} />
+    </button>
   );
 }

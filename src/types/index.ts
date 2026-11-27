@@ -17,6 +17,8 @@ export interface Business {
   logoUrl?: string | null;
   /** Accounts clients can pay into, shown on invoices. */
   bankAccounts: BankAccount[];
+  /** Email (and push) clients when their order moves to a new stage. */
+  notifyClients?: boolean;
   createdAt: string;
 }
 

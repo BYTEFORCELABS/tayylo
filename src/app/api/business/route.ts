@@ -49,6 +49,7 @@ const bodySchema = z.object({
   garmentTypes: ignoreWrongType(z.array(z.string().trim().min(1).max(60)).max(100)),
   logoUrl: ignoreWrongType(z.string().nullable()),
   bankAccounts: ignoreWrongType(z.array(z.unknown()).max(50)),
+  notifyClients: ignoreWrongType(z.boolean()),
 });
 
 export async function GET() {
@@ -84,6 +85,7 @@ export async function PATCH(request: Request) {
       await assertPlanAllows(userId, "customBranding");
       data.logoUrl = body.logoUrl;
     }
+    if (typeof body.notifyClients === "boolean") data.notifyClients = body.notifyClients;
     if (Array.isArray(body.bankAccounts)) data.bankAccounts = cleanAccounts(body.bankAccounts);
 
     const business = await prisma.business.upsert({

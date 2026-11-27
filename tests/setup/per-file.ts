@@ -30,6 +30,7 @@ vi.mock("@/lib/email", async () => {
     sendWelcomeEmail: vi.fn(async () => {}),
     sendPlanActivatedEmail: vi.fn(async () => {}),
     sendPaymentFailedEmail: vi.fn(async () => {}),
+    sendOrderUpdateEmail: vi.fn(async () => {}),
     sendAdminCodeEmail: vi.fn(async () => {}),
     sendModerationAlert: vi.fn(async () => {}),
     sendMarketingEmails: vi.fn(async (list: unknown[]) => ({ sent: list.length, failed: 0 })),

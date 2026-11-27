@@ -116,6 +116,8 @@ model Business {
   logoUrl      String?
   // Accounts clients can pay into: [{ id, bankName, accountName, accountNumber, isDefault }]
   bankAccounts Json     @default("[]")
+  // Email (and push, if they use the app) the client when an order changes stage.
+  notifyClients Boolean @default(true)
   createdAt    DateTime @default(now())
 
   customers Customer[]
@@ -253,6 +255,8 @@ model Order {
   bankAccountId String?
   // How many times the agreed price was changed after it was first set (capped)
   priceChangeCount Int @default(0)
+  // The last stage the client was told about, so they're never told twice.
+  clientNotifiedStatus String?
 
   items    OrderItem[]
   payments Payment[]

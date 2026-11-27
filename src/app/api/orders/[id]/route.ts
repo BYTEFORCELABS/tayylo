@@ -4,6 +4,7 @@ import { requireUserAndBusiness, errorResponse, ApiError } from "@/lib/auth-help
 import { mediaForOwner } from "@/lib/media";
 import { MAX_PRICE_CHANGES, normalizeStatus } from "@/lib/orders";
 import { id, imageUrl, readBody } from "@/lib/validation";
+import { notifyOrderStatusLater } from "@/lib/order-notifications";
 
 const ORDER_INCLUDE = {
   items: true,
@@ -114,6 +115,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
       return tx.order.update({ where: { id: orderId }, data, include: ORDER_INCLUDE });
     });
+    if (data.statusName && data.statusName !== normalizeStatus(existing.statusName)) notifyOrderStatusLater(orderId);
     const media = await mediaForOwner(business.id, "order", orderId);
     return Response.json({ ...order, media });
   } catch (error) {

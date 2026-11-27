@@ -74,10 +74,10 @@ export async function sendAdminCodeEmail(email: string, code: string) {
  * Lifecycle emails (welcome, plan changes). Best effort: a failed email must
  * never fail the sign-up or payment that triggered it.
  */
-async function sendLifecycle(to: string, e: RenderedEmail) {
+async function sendLifecycle(to: string, e: RenderedEmail, replyTo?: string) {
   if (!process.env.RESEND_API_KEY) return;
   try {
-    const { error } = await resend.emails.send({ from: FROM, to, subject: e.subject, html: e.html, text: e.text });
+    const { error } = await resend.emails.send({ from: FROM, to, subject: e.subject, html: e.html, text: e.text, ...(replyTo ? { replyTo } : {}) });
     if (error) throw new Error(error.message);
   } catch (err) {
     console.error(`[email] "${e.subject}" to ${to} failed:`, (err as Error).message);
@@ -86,6 +86,8 @@ async function sendLifecycle(to: string, e: RenderedEmail) {
 
 export const sendWelcomeEmail = (to: string, u: Parameters<typeof welcomeEmail>[0]) => sendLifecycle(to, welcomeEmail(u));
 export const sendPlanActivatedEmail = (to: string, u: Parameters<typeof planActivatedEmail>[0]) => sendLifecycle(to, planActivatedEmail(u));
+/** A tailor's client hears their order moved on; replies go to the tailor. */
+export const sendOrderUpdateEmail = (to: string, e: RenderedEmail, replyTo?: string) => sendLifecycle(to, e, replyTo);
 export const sendPaymentFailedEmail = (to: string, u: Parameters<typeof paymentFailedEmail>[0]) => sendLifecycle(to, paymentFailedEmail(u));
 
 export interface MarketingEmail {

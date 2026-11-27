@@ -79,3 +79,23 @@ await png(
   `<svg xmlns="http://www.w3.org/2000/svg" width="${18 * SCALE}" height="${18 * SCALE}" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="${OLIVE_SOFT}"/><path d="M5.2 9.3l2.4 2.4 5-5.2" stroke="${OLIVE}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   "check.png",
 );
+
+// ---------------------------------------------------------------- logo label
+// The logo on a stitched, sewn-in garment label. A solid cream label reads
+// on a light inbox and on a dark one: Gmail's dark mode recolours the page
+// but never images, so a transparent olive logo would vanish there.
+{
+  const W = 152, H = 50, R = 10;
+  const logoW = 112;
+  const logo = await sharp("public/lockup_olive.png").resize({ width: logoW * SCALE }).png().toBuffer();
+  const { height: lh } = await sharp(logo).metadata();
+  const label = `<svg xmlns="http://www.w3.org/2000/svg" width="${W * SCALE}" height="${H * SCALE}" viewBox="0 0 ${W} ${H}">
+<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="${R}" fill="#FBFAF7" stroke="#D9D3C2"/>
+<rect x="4.5" y="4.5" width="${W - 9}" height="${H - 9}" rx="${R - 4}" fill="none" stroke="#B9B29C" stroke-width="1.1" stroke-dasharray="3.2 2.6" stroke-linecap="round"/>
+</svg>`;
+  await sharp(Buffer.from(label))
+    .composite([{ input: logo, left: Math.round(((W - logoW) / 2) * SCALE), top: Math.round((H * SCALE - lh) / 2) }])
+    .png({ compressionLevel: 9 })
+    .toFile(`${OUT}/logo-label.png`);
+  console.log("wrote logo-label.png");
+}

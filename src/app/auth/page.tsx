@@ -39,6 +39,8 @@ function AppleIcon() {
 }
 
 type Provider = "google" | "apple";
+/** Sign in with Apple is greyed out until it's finished; flip to true to turn it back on. */
+const APPLE_SIGN_IN_READY = false;
 const providerName = (p: string | null) => (p === "google" ? "Google" : "Apple");
 
 /**
@@ -375,12 +377,18 @@ function AuthPageInner() {
                       size="lg"
                       block
                       loading={oauthLoading === "apple"}
-                      disabled={!!oauthLoading || loading}
+                      disabled={!APPLE_SIGN_IN_READY || !!oauthLoading || loading}
                       onClick={() => handleOAuth("apple")}
+                      aria-describedby={APPLE_SIGN_IN_READY ? undefined : "apple-soon"}
                       className="bg-black text-white shadow-none hover:bg-[#1d1d1f] focus-visible:outline-black disabled:opacity-60 [font-family:-apple-system,BlinkMacSystemFont,'Helvetica_Neue',Helvetica,Arial,sans-serif]"
                     >
                       <AppleIcon />
                       Continue with Apple
+                      {!APPLE_SIGN_IN_READY && (
+                        <span id="apple-soon" className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-caption font-medium">
+                          Coming soon
+                        </span>
+                      )}
                     </Button>
                     <Button
                       variant="secondary"

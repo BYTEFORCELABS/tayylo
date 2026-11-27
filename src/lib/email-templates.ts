@@ -34,6 +34,49 @@ const C = {
 };
 const FONT = "'Urbanist','Helvetica Neue',Helvetica,Arial,sans-serif";
 
+/**
+ * Dark mode. Apple Mail, iOS Mail, Outlook (Mac/iOS/Android) and others honour
+ * prefers-color-scheme, so they get this hand-picked palette; Outlook.com uses
+ * the [data-ogsc]/[data-ogsb] attributes. Gmail ignores both and recolours the
+ * page itself, so every image is designed to read on light and dark
+ * backgrounds (the logo sits on its own cream label for that reason).
+ */
+const D = {
+  canvas: "#14160F",
+  card: "#1D2017",
+  ink: "#F3F1EA",
+  body: "#D5D3C8",
+  muted: "#A9AB9B",
+  faint: "#808272",
+  line: "#34382A",
+  stitch: "#4F553D",
+  accent: "#C8D09F",
+  beige: "#252919",
+  soft: "#2E3422",
+  button: "#5C6939",
+};
+function darkCss() {
+  const rules = (pre: string, bg: string) => `
+${pre}.dm-canvas{${bg}:${D.canvas} !important;}
+${pre}.dm-card{${bg}:${D.card} !important;border-color:${D.line} !important;}
+${pre}.dm-beige{${bg}:${D.beige} !important;border-color:${D.stitch} !important;}
+${pre}.dm-soft{${bg}:${D.soft} !important;color:${D.accent} !important;}
+${pre}.dm-btn{${bg}:${D.button} !important;}
+${pre}.dm-line{border-color:${D.line} !important;}
+${pre}.dm-rail{border-color:${D.button} !important;}
+${pre}.dm-ring{border-color:${D.soft} !important;}`;
+  const text = (pre: string) => `
+${pre}.dm-ink{color:${D.ink} !important;}
+${pre}.dm-body{color:${D.body} !important;}
+${pre}.dm-muted{color:${D.muted} !important;}
+${pre}.dm-faint{color:${D.faint} !important;}
+${pre}.dm-accent{color:${D.accent} !important;}`;
+  return `@media (prefers-color-scheme: dark){${rules("", "background")}${text("")}
+  a{color:${D.accent} !important;}
+  .dm-btn a{color:#FFFFFF !important;}
+}${rules("[data-ogsb] ", "background-color")}${text("[data-ogsc] ")}`;
+}
+
 /** Where email images are loaded from (must be public on the internet). */
 export function emailAssetOrigin() {
   const fromEnv = process.env.EMAIL_ASSETS_URL || process.env.AUTH_URL;
@@ -64,6 +107,8 @@ export type Block =
   | { type: "note"; text: string }
   | { type: "link"; label: string; url: string }
   | { type: "steps"; items: { title: string; text: string }[] }
+  /** A progress track: stages left to right, `current` is the index reached. */
+  | { type: "track"; stages: string[]; current: number }
   | { type: "divider" };
 
 export interface Layout {
@@ -82,59 +127,82 @@ export interface Layout {
 }
 
 const p = (text: string, style = "") =>
-  `<p style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:26px;color:${C.body};${style}">${text}</p>`;
+  `<p class="dm-body" style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:26px;color:${C.body};${style}">${text}</p>`;
 
 /** Paragraph text: escaped, with **bold** and line breaks. */
-const rich = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, `<strong style="color:${C.ink};font-weight:700;">$1</strong>`).replace(/\n/g, "<br>");
+const rich = (s: string) => esc(s).replace(/\*\*(.+?)\*\*/g, `<strong class="dm-ink" style="color:${C.ink};font-weight:700;">$1</strong>`).replace(/\n/g, "<br>");
 
 function block(b: Block, origin: string): string {
   switch (b.type) {
     case "greeting":
-      return `<p style="margin:0 0 10px;font-family:${FONT};font-size:13px;line-height:18px;letter-spacing:1.6px;text-transform:uppercase;font-weight:700;color:${C.olive};">${esc(b.text)}</p>`;
+      return `<p class="dm-accent" style="margin:0 0 10px;font-family:${FONT};font-size:13px;line-height:18px;letter-spacing:1.6px;text-transform:uppercase;font-weight:700;color:${C.olive};">${esc(b.text)}</p>`;
     case "heading":
-      return `<h1 style="margin:0 0 16px;font-family:${FONT};font-size:28px;line-height:34px;font-weight:700;letter-spacing:-0.4px;color:${C.ink};">${esc(b.text)}</h1>`;
+      return `<h1 class="dm-ink" style="margin:0 0 16px;font-family:${FONT};font-size:28px;line-height:34px;font-weight:700;letter-spacing:-0.4px;color:${C.ink};">${esc(b.text)}</h1>`;
     case "paragraph":
       return p(rich(b.text));
     case "list":
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;">${b.items
         .map(
           i => `<tr><td valign="top" style="padding:3px 12px 7px 0;"><img src="${origin}/email/check.png" width="18" height="18" alt="" style="display:block;border:0;"></td>
-<td style="padding:2px 0 7px;font-family:${FONT};font-size:16px;line-height:24px;color:${C.body};">${rich(i)}</td></tr>`,
+<td class="dm-body" style="padding:2px 0 7px;font-family:${FONT};font-size:16px;line-height:24px;color:${C.body};">${rich(i)}</td></tr>`,
         )
         .join("")}</table>`;
     case "button":
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 22px;"><tr>
-<td align="center" bgcolor="${C.olive}" style="border-radius:999px;background:${C.olive};">
-<a href="${esc(b.url)}" target="_blank" style="display:inline-block;padding:15px 30px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:999px;">${esc(b.label)}&nbsp;&nbsp;&rarr;</a>
+<td class="dm-btn" align="center" bgcolor="${C.olive}" style="border-radius:999px;background:${C.olive};">
+<a href="${esc(b.url)}" target="_blank" style="display:inline-block;padding:15px 30px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:999px;">${esc(b.label)}</a>
 </td></tr></table>`;
     case "code":
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 20px;"><tr>
-<td align="center" bgcolor="${C.beige}" style="background:${C.beige};border:2px dashed ${C.stitch};border-radius:18px;padding:22px 12px 18px;">
-<div style="font-family:'SF Mono',Menlo,Consolas,'Courier New',monospace;font-size:38px;line-height:44px;font-weight:700;letter-spacing:12px;color:${C.olive};padding-left:12px;">${esc(b.code)}</div>
-${b.caption ? `<div style="margin-top:8px;font-family:${FONT};font-size:13px;line-height:18px;color:${C.muted};">${esc(b.caption)}</div>` : ""}
+<td class="dm-beige" align="center" bgcolor="${C.beige}" style="background:${C.beige};border:2px dashed ${C.stitch};border-radius:18px;padding:22px 12px 18px;">
+<div class="dm-accent" style="font-family:'SF Mono',Menlo,Consolas,'Courier New',monospace;font-size:38px;line-height:44px;font-weight:700;letter-spacing:12px;color:${C.olive};padding-left:12px;">${esc(b.code)}</div>
+${b.caption ? `<div class="dm-muted" style="margin-top:8px;font-family:${FONT};font-size:13px;line-height:18px;color:${C.muted};">${esc(b.caption)}</div>` : ""}
 </td></tr></table>`;
     case "details":
-      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;border-top:1px solid ${C.line};">${b.rows
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="dm-line" style="margin:4px 0 22px;border-top:1px solid ${C.line};">${b.rows
         .map(
-          ([k, v]) => `<tr><td style="padding:12px 0;border-bottom:1px solid ${C.line};font-family:${FONT};font-size:14px;line-height:20px;color:${C.muted};">${esc(k)}</td>
-<td align="right" style="padding:12px 0;border-bottom:1px solid ${C.line};font-family:${FONT};font-size:14px;line-height:20px;font-weight:700;color:${C.ink};">${esc(v)}</td></tr>`,
+          ([k, v]) => `<tr><td class="dm-line dm-muted" style="padding:12px 0;border-bottom:1px solid ${C.line};font-family:${FONT};font-size:14px;line-height:20px;color:${C.muted};">${esc(k)}</td>
+<td class="dm-line dm-ink" align="right" style="padding:12px 0;border-bottom:1px solid ${C.line};font-family:${FONT};font-size:14px;line-height:20px;font-weight:700;color:${C.ink};">${esc(v)}</td></tr>`,
         )
         .join("")}</table>`;
     case "steps":
       return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;">${b.items
         .map(
           (s, i) => `<tr><td valign="top" width="44" style="padding:0 0 16px;">
-<div style="width:32px;height:32px;line-height:32px;border-radius:16px;background:${C.oliveSoft};text-align:center;font-family:${FONT};font-size:14px;font-weight:700;color:${C.olive};">${i + 1}</div></td>
-<td valign="top" style="padding:3px 0 16px;font-family:${FONT};"><div style="font-size:16px;line-height:22px;font-weight:700;color:${C.ink};">${esc(s.title)}</div>
-<div style="font-size:15px;line-height:22px;color:${C.muted};">${esc(s.text)}</div></td></tr>`,
+<div class="dm-soft" style="width:32px;height:32px;line-height:32px;border-radius:16px;background:${C.oliveSoft};text-align:center;font-family:${FONT};font-size:14px;font-weight:700;color:${C.olive};">${i + 1}</div></td>
+<td valign="top" style="padding:3px 0 16px;font-family:${FONT};"><div class="dm-ink" style="font-size:16px;line-height:22px;font-weight:700;color:${C.ink};">${esc(s.title)}</div>
+<div class="dm-muted" style="font-size:15px;line-height:22px;color:${C.muted};">${esc(s.text)}</div></td></tr>`,
         )
         .join("")}</table>`;
+    case "track": {
+      const n = b.stages.length;
+      const cells = b.stages
+        .map((label, i) => {
+          const done = i < b.current;
+          const now = i === b.current;
+          const dot = now
+            ? `<div class="dm-btn dm-ring" style="width:18px;height:18px;margin:0 auto;border-radius:12px;background:${C.olive};border:3px solid ${C.oliveSoft};font-size:0;line-height:0;">&nbsp;</div>`
+            : done
+              ? `<div class="dm-btn" style="width:12px;height:12px;margin:6px auto;border-radius:6px;background:${C.olive};font-size:0;line-height:0;">&nbsp;</div>`
+              : `<div class="dm-line" style="width:8px;height:8px;margin:6px auto;border-radius:6px;border:2px solid ${C.stitch};font-size:0;line-height:0;">&nbsp;</div>`;
+          const rail = (side: "l" | "r") => {
+            if ((side === "l" && i === 0) || (side === "r" && i === n - 1)) return `<td width="50%" style="font-size:0;line-height:0;">&nbsp;</td>`;
+            const solid = side === "l" ? i <= b.current : i < b.current;
+            return `<td width="50%" valign="middle" style="font-size:0;line-height:0;"><div class="${solid ? "dm-rail" : "dm-line"}" style="border-top:2px ${solid ? "solid" : "dashed"} ${solid ? C.olive : C.stitch};font-size:0;line-height:0;">&nbsp;</div></td>`;
+          };
+          return `<td width="${Math.floor(100 / n)}%" valign="top" align="center" style="padding:0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${rail("l")}<td valign="middle" style="padding:0 2px;">${dot}</td>${rail("r")}</tr></table>
+<div class="${now ? "dm-ink" : done ? "dm-body" : "dm-faint"}" style="margin-top:8px;font-family:${FONT};font-size:12px;line-height:16px;font-weight:${now ? 700 : 500};color:${now ? C.ink : done ? C.body : C.faint};">${esc(label)}</div></td>`;
+        })
+        .join("");
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 24px;table-layout:fixed;"><tr>${cells}</tr></table>`;
+    }
     case "note":
-      return `<p style="margin:0 0 14px;font-family:${FONT};font-size:14px;line-height:22px;color:${C.muted};">${rich(b.text)}</p>`;
+      return `<p class="dm-muted" style="margin:0 0 14px;font-family:${FONT};font-size:14px;line-height:22px;color:${C.muted};">${rich(b.text)}</p>`;
     case "link":
-      return `<p style="margin:0 0 16px;font-family:${FONT};font-size:13px;line-height:20px;color:${C.muted};word-break:break-all;">${esc(b.label)}<br><a href="${esc(b.url)}" style="color:${C.olive};text-decoration:underline;">${esc(b.url)}</a></p>`;
+      return `<p class="dm-muted" style="margin:0 0 16px;font-family:${FONT};font-size:13px;line-height:20px;color:${C.muted};word-break:break-all;">${esc(b.label)}<br><a class="dm-accent" href="${esc(b.url)}" style="color:${C.olive};text-decoration:underline;">${esc(b.url)}</a></p>`;
     case "divider":
-      return `<div style="margin:8px 0 22px;border-top:2px dashed ${C.line};font-size:0;line-height:0;">&nbsp;</div>`;
+      return `<div class="dm-line" style="margin:8px 0 22px;border-top:2px dashed ${C.line};font-size:0;line-height:0;">&nbsp;</div>`;
   }
 }
 
@@ -160,34 +228,36 @@ ${l.hero.subtitle ? `<div style="margin-top:10px;font-family:${FONT};font-size:1
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <meta name="x-apple-disable-message-reformatting">
 <title>Tayylo</title>
 <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   body{margin:0;padding:0;background:${C.canvas};}
   a{color:${C.olive};}
+  :root{color-scheme:light dark;supported-color-schemes:light dark;}
+  ${darkCss()}
   @media (max-width:620px){
     .px{padding-left:22px !important;padding-right:22px !important;}
     .hero-title{font-size:28px !important;line-height:34px !important;}
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:${C.canvas};">
+<body class="dm-canvas" style="margin:0;padding:0;background:${C.canvas};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${esc(l.preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.canvas}" style="background:${C.canvas};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="dm-canvas" bgcolor="${C.canvas}" style="background:${C.canvas};">
 <tr><td align="center" style="padding:32px 12px 40px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
 
 <tr><td style="padding:0 8px 20px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td><a href="${appUrl()}" target="_blank"><img src="${origin}/lockup_olive.png" width="124" alt="Tayylo" style="display:block;width:124px;height:auto;border:0;"></a></td>
-<td align="right" style="font-family:${FONT};font-size:11px;line-height:16px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:${C.muted};">${esc(l.label)}</td>
+<td><a href="${appUrl()}" target="_blank"><img src="${origin}/email/logo-label.png" width="152" height="50" alt="Tayylo" style="display:block;width:152px;height:50px;border:0;"></a></td>
+<td class="dm-muted" align="right" style="font-family:${FONT};font-size:11px;line-height:16px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:${C.muted};">${esc(l.label)}</td>
 </tr></table>
 </td></tr>
 
-<tr><td bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.line};border-radius:24px;">
+<tr><td class="dm-card" bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.line};border-radius:24px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 ${hero}
 <tr><td class="px" style="padding:${l.hero ? "34px" : "40px"} 40px 22px;">
@@ -199,14 +269,14 @@ ${l.blocks.map(b => block(b, origin)).join("\n")}
 
 <tr><td align="center" style="padding:28px 24px 0;">
 <img src="${origin}/email/footer-garments.png" width="86" alt="" style="display:block;width:86px;height:auto;border:0;margin:0 auto 14px;">
-<div style="font-family:${FONT};font-size:14px;line-height:20px;font-weight:700;color:${C.olive};">Tayylo &middot; The modern tailor&rsquo;s notebook</div>
+<div class="dm-accent" style="font-family:${FONT};font-size:14px;line-height:20px;font-weight:700;color:${C.olive};">Tayylo &middot; The modern tailor&rsquo;s notebook</div>
 <div style="margin-top:10px;font-family:${FONT};font-size:13px;line-height:20px;">
-<a href="${appUrl()}" style="color:${C.olive};text-decoration:none;font-weight:600;">Open Tayylo</a>
+<a class="dm-accent" href="${appUrl()}" style="color:${C.olive};text-decoration:none;font-weight:600;">Open Tayylo</a>
 <span style="color:${C.faint};">&nbsp;&nbsp;&middot;&nbsp;&nbsp;</span>
-<a href="mailto:support@tayylo.com" style="color:${C.olive};text-decoration:none;font-weight:600;">Get help</a>
+<a class="dm-accent" href="mailto:support@tayylo.com" style="color:${C.olive};text-decoration:none;font-weight:600;">Get help</a>
 </div>
-<div style="margin-top:14px;font-family:${FONT};font-size:12px;line-height:19px;color:${C.faint};">
-${esc(l.reason)}${l.unsubscribeUrl ? `<br><a href="${esc(l.unsubscribeUrl)}" style="color:${C.muted};text-decoration:underline;">Unsubscribe from updates</a>` : ""}
+<div class="dm-faint" style="margin-top:14px;font-family:${FONT};font-size:12px;line-height:19px;color:${C.faint};">
+${esc(l.reason)}${l.unsubscribeUrl ? `<br><a class="dm-muted" href="${esc(l.unsubscribeUrl)}" style="color:${C.muted};text-decoration:underline;">Unsubscribe from updates</a>` : ""}
 <br>&copy; ${year} Tayylo. All rights reserved.${address}
 </div>
 </td></tr>
@@ -225,6 +295,7 @@ export function plainText(l: Layout, subject: string): string {
   for (const b of l.blocks) {
     if (b.type === "greeting" || b.type === "heading" || b.type === "paragraph" || b.type === "note") lines.push(strip(b.text), "");
     if (b.type === "list") lines.push(...b.items.map(i => `- ${strip(i)}`), "");
+    if (b.type === "track") lines.push(b.stages.map((st, i) => (i === b.current ? `[${st}]` : st)).join(" > "), "");
     if (b.type === "steps") lines.push(...b.items.map((s, i) => `${i + 1}. ${s.title}: ${s.text}`), "");
     if (b.type === "button" || b.type === "link") lines.push(`${b.label}: ${b.url}`, "");
     if (b.type === "code") lines.push(b.code, b.caption ?? "", "");
@@ -409,6 +480,74 @@ export function campaignEmail(
   );
 }
 
+/** The stages a client sees, in order. "Alterations" shows as part of Fitting. */
+export const ORDER_TRACK = [
+  { key: "cutting", label: "Cutting" },
+  { key: "sewing", label: "Sewing" },
+  { key: "fitting", label: "Fitting" },
+  { key: "ready", label: "Ready" },
+  { key: "delivered", label: "Delivered" },
+] as const;
+
+const ORDER_COPY: Record<string, { heading: string; line: (biz: string) => string; push: string }> = {
+  cutting: { heading: "Your fabric is being cut", line: b => `Good news: **${b}** has started on your order and is cutting your fabric now.`, push: "Your fabric is being cut" },
+  sewing: { heading: "Your outfit is being sewn", line: b => `Your order is on the machine. **${b}** is sewing it together.`, push: "Your outfit is being sewn" },
+  fitting: { heading: "Time for your fitting", line: b => `Your outfit is ready to try on. **${b}** will be in touch to arrange a time, or reply to this email to suggest one.`, push: "Ready for your fitting" },
+  alterations: { heading: "Final adjustments under way", line: b => `**${b}** is making the adjustments from your fitting so everything sits just right.`, push: "Final adjustments under way" },
+  ready: { heading: "Your outfit is ready!", line: b => `It's finished. Your order is ready to collect from **${b}**.`, push: "Your outfit is ready to collect" },
+  delivered: { heading: "Delivered. Wear it well", line: b => `Your order from **${b}** has been delivered. We hope you love how it fits.`, push: "Your order has been delivered" },
+  cancelled: { heading: "Your order was cancelled", line: b => `**${b}** has cancelled this order. If that's unexpected, reply to this email to ask them about it.`, push: "Your order was cancelled" },
+};
+
+export interface OrderUpdate {
+  customerName: string | null;
+  businessName: string;
+  orderNumber: string;
+  status: string;
+  items: string[];
+  dueAt: Date | null;
+}
+
+/** Push text for an order update (same words as the email). */
+export function orderStatusPush(u: OrderUpdate) {
+  const copy = ORDER_COPY[u.status];
+  return copy ? { title: `${u.businessName}: ${copy.push}`.slice(0, 65), body: `Order #${u.orderNumber}${u.items.length ? ` (${u.items.join(", ")})` : ""}`.slice(0, 178) } : null;
+}
+
+/** Sent to a tailor's client when their order moves to a new stage. */
+export function orderStatusEmail(u: OrderUpdate, origin?: string): RenderedEmail | null {
+  const copy = ORDER_COPY[u.status];
+  if (!copy) return null;
+  const stage = u.status === "alterations" ? 2 : ORDER_TRACK.findIndex(s => s.key === u.status);
+  const showDue = u.dueAt && !["delivered", "cancelled"].includes(u.status);
+  return build(
+    `${copy.heading} · ${u.businessName}`,
+    {
+      preheader: `Order #${u.orderNumber} from ${u.businessName}: ${copy.push.toLowerCase()}.`,
+      label: "Order update",
+      icon: u.status === "ready" || u.status === "delivered" ? "sparkle" : "hanger",
+      blocks: [
+        { type: "greeting", text: hi(u.customerName) },
+        { type: "heading", text: copy.heading },
+        { type: "paragraph", text: copy.line(u.businessName) },
+        ...(stage >= 0 ? [{ type: "track" as const, stages: ORDER_TRACK.map(s => s.label), current: stage }] : []),
+        {
+          type: "details",
+          rows: [
+            ["Order", `#${u.orderNumber}`],
+            ...(u.items.length ? [["Items", u.items.join(", ")] as [string, string]] : []),
+            ...(showDue ? [["Due", longDate(u.dueAt!)] as [string, string]] : []),
+            ["Made by", u.businessName],
+          ],
+        },
+        { type: "note", text: `Questions about your order? Just reply to this email and it will go to **${u.businessName}**.` },
+      ],
+      reason: `You're getting this because ${u.businessName} uses Tayylo to keep you updated on your order.`,
+    },
+    origin,
+  );
+}
+
 export function moderationAlertEmail(
   a: { postId: string; imageUrl: string; authorName: string; authorEmail: string; reason: string; details: string | null; reporterEmail: string; reportCount: number; hidden: boolean },
   reviewUrl: string | null,
@@ -439,7 +578,7 @@ export function moderationAlertEmail(
   const r = build(`Explore report: ${a.reason} (${a.reportCount}${a.hidden ? ", now hidden" : ""})`, l, origin);
   // The reported photo, right under the heading area.
   r.html = r.html.replace(
-    /(<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 22px;border-top)/,
+    /(<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="dm-line" style="margin:4px 0 22px;border-top)/,
     `<img src="${esc(a.imageUrl)}" width="240" alt="Reported photo" style="display:block;width:240px;max-width:100%;height:auto;border:0;border-radius:14px;margin:0 0 18px;">$1`,
   );
   return r;

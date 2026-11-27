@@ -4,6 +4,7 @@ import {
   adminCodeEmail,
   campaignEmail,
   moderationAlertEmail,
+  orderStatusEmail,
   passwordResetEmail,
   paymentFailedEmail,
   planActivatedEmail,
@@ -35,6 +36,18 @@ function samples(): { key: string; name: string; when: string; email: RenderedEm
       when: "Staff give someone a plan",
       email: planActivatedEmail({ name: "Adaeze", planName: "Pro", features: ["Unlimited clients", "Your studio logo on invoices and receipts"], renews: new Date(Date.now() + 90 * 864e5), gifted: true }, O),
     },
+    {
+      key: "order-sewing",
+      name: "Order update (in progress)",
+      when: "A tailor moves a client's order to a new stage",
+      email: orderStatusEmail({ customerName: "Chioma Eze", businessName: "Kente House Studio", orderNumber: "1042", status: "sewing", items: ["Agbada", "Cap"], dueAt: new Date(Date.now() + 9 * 864e5) }, O)!,
+    },
+    {
+      key: "order-ready",
+      name: "Order update (ready)",
+      when: "The order is ready to collect",
+      email: orderStatusEmail({ customerName: "Chioma Eze", businessName: "Kente House Studio", orderNumber: "1042", status: "ready", items: ["Agbada", "Cap"], dueAt: new Date(Date.now() + 2 * 864e5) }, O)!,
+    },
     { key: "failed", name: "Payment failed", when: "A renewal payment fails", email: paymentFailedEmail({ name: "Adaeze", planName: "Pro" }, O) },
     {
       key: "campaign",
@@ -64,14 +77,18 @@ function samples(): { key: string; name: string; when: string; email: RenderedEm
   ];
 }
 
-export default async function EmailsPage({ searchParams }: { searchParams: Promise<{ e?: string; w?: string }> }) {
+/** Forces the email's dark-mode styles on, as Apple Mail or Outlook would on a dark device. */
+const asDark = (html: string) => html.replace("@media (prefers-color-scheme: dark)", "@media all");
+
+export default async function EmailsPage({ searchParams }: { searchParams: Promise<{ e?: string; w?: string; m?: string }> }) {
   await requireStaffPage();
   const sp = await searchParams;
   const all = samples();
   const current = all.find(s => s.key === sp.e) ?? all[0];
   const phone = sp.w === "phone";
-  const href = ({ e = current.key, w = phone ? "phone" : "desktop" }: { e?: string; w?: string }) =>
-    `/emails?e=${e}${w === "phone" ? "&w=phone" : ""}`;
+  const dark = sp.m === "dark";
+  const href = ({ e = current.key, w = phone ? "phone" : "desktop", m = dark ? "dark" : "light" }: { e?: string; w?: string; m?: string }) =>
+    `/emails?e=${e}${w === "phone" ? "&w=phone" : ""}${m === "dark" ? "&m=dark" : ""}`;
 
   return (
     <>
@@ -100,17 +117,24 @@ export default async function EmailsPage({ searchParams }: { searchParams: Promi
               <p className="text-caption uppercase tracking-wide text-text-tertiary">Subject</p>
               <p className="truncate text-[15px] font-semibold text-ink">{current.email.subject}</p>
             </div>
-            <FilterTabs
-              options={[{ key: "desktop", label: "Desktop" }, { key: "phone", label: "Phone" }]}
-              value={phone ? "phone" : "desktop"}
-              hrefFor={k => href({ w: k })}
-            />
+            <div className="flex flex-wrap gap-2">
+              <FilterTabs
+                options={[{ key: "light", label: "Light" }, { key: "dark", label: "Dark" }]}
+                value={dark ? "dark" : "light"}
+                hrefFor={k => href({ m: k })}
+              />
+              <FilterTabs
+                options={[{ key: "desktop", label: "Desktop" }, { key: "phone", label: "Phone" }]}
+                value={phone ? "phone" : "desktop"}
+                hrefFor={k => href({ w: k })}
+              />
+            </div>
           </div>
           <div className="flex justify-center rounded-[var(--radius-card)] border border-border/70 bg-surface-sunken/60 p-3 sm:p-6">
             <iframe
               title={`${current.name} preview`}
-              srcDoc={current.email.html}
-              className="h-[1100px] rounded-[var(--radius-sm)] border-0 bg-white shadow-[var(--shadow-xs)]"
+              srcDoc={dark ? asDark(current.email.html) : current.email.html}
+              className="h-[1100px] rounded-[var(--radius-sm)] border-0 shadow-[var(--shadow-xs)]"
               style={{ width: phone ? 390 : "100%", maxWidth: 680 }}
             />
           </div>
